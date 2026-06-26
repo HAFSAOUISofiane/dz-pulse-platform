@@ -38,6 +38,7 @@ jobs:
           PORT: "3000"
           BASE_PATH: "/dz-pulse-platform/"
           NODE_ENV: production
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: pnpm run build
 
       - name: Upload Pages artifact
