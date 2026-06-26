@@ -119,7 +119,7 @@ router.get("/polls", optionalAuthMiddleware, async (req, res) => {
 
     const rawPollMode = req.query.pollMode as string | undefined;
     if (rawPollMode && rawPollMode !== "all") {
-      conditions.push(eq((pollsTable as any).pollMode, rawPollMode));
+      conditions.push(inArray((pollsTable as any).pollMode, [rawPollMode, "all"]));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
