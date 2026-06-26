@@ -1,0 +1,1255 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: DzPulse - Algeria Public Polling Platform API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: categories
+    description: Poll categories
+  - name: polls
+    description: Polls management
+  - name: votes
+    description: Voting operations
+  - name: comments
+    description: Comments on polls
+  - name: suggestions
+    description: Poll suggestions
+  - name: reports
+    description: Content reports
+  - name: analytics
+    description: Platform analytics
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: admin
+    description: Admin operations
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # Auth
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logoutUser
+      tags: [auth]
+      summary: Logout user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/config:
+    get:
+      operationId: getAuthConfig
+      tags: [auth]
+      summary: Get auth provider configuration
+      description: Returns which OAuth providers are enabled based on server configuration.
+      responses:
+        "200":
+          description: Auth configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthConfig"
+
+  # Categories
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /categories/{slug}:
+    get:
+      operationId: getCategoryBySlug
+      tags: [categories]
+      summary: Get a category by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Polls
+  /polls:
+    get:
+      operationId: listPolls
+      tags: [polls]
+      summary: List polls with filters
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter by category slug
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed, upcoming, archived]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [trending, latest, most_voted, controversial]
+          description: Sort order
+        - name: wilaya
+          in: query
+          schema:
+            type: string
+          description: Filter by wilaya code or "national"
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search query
+        - name: featured
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated list of polls
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollListResponse"
+
+  /polls/{slug}:
+    get:
+      operationId: getPollBySlug
+      tags: [polls]
+      summary: Get poll detail by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Poll detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /polls/{slug}/related:
+    get:
+      operationId: getRelatedPolls
+      tags: [polls]
+      summary: Get related polls
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Related polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Poll"
+
+  # Votes
+  /polls/{slug}/vote:
+    post:
+      operationId: castVote
+      tags: [votes]
+      summary: Cast a vote on a poll
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteBody"
+      responses:
+        "200":
+          description: Vote recorded, returns updated poll results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteResponse"
+        "400":
+          description: Already voted or poll closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /polls/{slug}/my-vote:
+    get:
+      operationId: getMyVote
+      tags: [votes]
+      summary: Get current user's vote on a poll
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User's vote or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyVoteResponse"
+
+  # Comments
+  /polls/{slug}/comments:
+    get:
+      operationId: listComments
+      tags: [comments]
+      summary: List comments on a poll
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Comments list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentListResponse"
+
+    post:
+      operationId: createComment
+      tags: [comments]
+      summary: Create a comment on a poll
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentBody"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Suggestions
+  /suggestions:
+    post:
+      operationId: submitSuggestion
+      tags: [suggestions]
+      summary: Submit a poll suggestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestionBody"
+      responses:
+        "201":
+          description: Suggestion submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Suggestion"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Reports
+  /reports:
+    post:
+      operationId: submitReport
+      tags: [reports]
+      summary: Submit a report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportBody"
+      responses:
+        "201":
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # Analytics
+  /analytics/summary:
+    get:
+      operationId: getAnalyticsSummary
+      tags: [analytics]
+      summary: Get platform-wide analytics summary
+      responses:
+        "200":
+          description: Analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSummary"
+
+  /analytics/trending:
+    get:
+      operationId: getTrendingPolls
+      tags: [analytics]
+      summary: Get trending polls
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: Trending polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Poll"
+
+  /analytics/category-breakdown:
+    get:
+      operationId: getCategoryBreakdown
+      tags: [analytics]
+      summary: Get vote counts by category
+      responses:
+        "200":
+          description: Category breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryBreakdown"
+
+  # Admin
+  /admin/suggestions:
+    get:
+      operationId: adminListSuggestions
+      tags: [admin]
+      summary: List all suggestions (admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: Suggestions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Suggestion"
+
+  /admin/suggestions/{id}/review:
+    post:
+      operationId: adminReviewSuggestion
+      tags: [admin]
+      summary: Approve or reject a suggestion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewSuggestionBody"
+      responses:
+        "200":
+          description: Suggestion reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Suggestion"
+
+  /admin/reports:
+    get:
+      operationId: adminListReports
+      tags: [admin]
+      summary: List all reports (admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, reviewed, resolved, dismissed]
+      responses:
+        "200":
+          description: Reports list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+
+  /admin/polls:
+    post:
+      operationId: adminCreatePoll
+      tags: [admin]
+      summary: Create a poll (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePollBody"
+      responses:
+        "201":
+          description: Poll created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollDetail"
+
+  /admin/polls/{id}/feature:
+    post:
+      operationId: adminToggleFeaturePoll
+      tags: [admin]
+      summary: Toggle featured status of a poll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleFeatureBody"
+      responses:
+        "200":
+          description: Poll updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # User
+  /users/{username}:
+    get:
+      operationId: getUserProfile
+      tags: [users]
+      summary: Get a user's public profile
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/voted-polls:
+    get:
+      operationId: getMyVotedPolls
+      tags: [users]
+      summary: Get polls the current user has voted on
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Polls user voted on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollListResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    AuthConfig:
+      type: object
+      properties:
+        googleOAuthEnabled:
+          type: boolean
+          description: Whether Google OAuth sign-in is configured and available.
+      required: [googleOAuthEnabled]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error, message]
+
+    RegisterBody:
+      type: object
+      properties:
+        name:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        wilaya:
+          type: string
+          nullable: true
+        ageRange:
+          type: string
+          nullable: true
+      required: [name, username, email, password]
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required: [user, token]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, moderator, admin]
+        avatarUrl:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        wilaya:
+          type: string
+          nullable: true
+        ageRange:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, username, email, role, createdAt]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        username:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        wilaya:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        totalVotes:
+          type: integer
+        totalSuggestions:
+          type: integer
+      required: [id, name, username, createdAt, totalVotes, totalSuggestions]
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+        icon:
+          type: string
+        isActive:
+          type: boolean
+        orderIndex:
+          type: integer
+        pollCount:
+          type: integer
+      required: [id, name, slug, color, icon, isActive, orderIndex, pollCount]
+
+    PollOption:
+      type: object
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        slug:
+          type: string
+        displayOrder:
+          type: integer
+        voteCount:
+          type: integer
+        percentageCache:
+          type: number
+      required: [id, label, slug, displayOrder, voteCount, percentageCache]
+
+    Poll:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        subtitle:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        pollType:
+          type: string
+          enum: [binary, multiple_choice]
+        status:
+          type: string
+          enum: [draft, open, closed, upcoming, archived]
+        regionScope:
+          type: string
+          enum: [national, wilaya]
+        wilayaCode:
+          type: string
+          nullable: true
+        totalVotes:
+          type: integer
+        uniqueVoters:
+          type: integer
+        isFeatured:
+          type: boolean
+        isTrending:
+          type: boolean
+        opensAt:
+          type: string
+          format: date-time
+          nullable: true
+        closesAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        category:
+          $ref: "#/components/schemas/Category"
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/PollOption"
+        tags:
+          type: array
+          items:
+            type: string
+      required: [id, title, slug, pollType, status, regionScope, totalVotes, uniqueVoters, isFeatured, isTrending, createdAt, updatedAt, category, options, tags]
+
+    PollDetail:
+      allOf:
+        - $ref: "#/components/schemas/Poll"
+        - type: object
+          properties:
+            editorialNote:
+              type: string
+              nullable: true
+            methodologyNote:
+              type: string
+              nullable: true
+            sourceLinks:
+              type: array
+              items:
+                type: string
+            commentCount:
+              type: integer
+          required: [commentCount]
+
+    PollListResponse:
+      type: object
+      properties:
+        polls:
+          type: array
+          items:
+            $ref: "#/components/schemas/Poll"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required: [polls, total, page, limit, totalPages]
+
+    VoteBody:
+      type: object
+      properties:
+        optionId:
+          type: integer
+      required: [optionId]
+
+    VoteResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/PollOption"
+        totalVotes:
+          type: integer
+        uniqueVoters:
+          type: integer
+      required: [message, options, totalVotes, uniqueVoters]
+
+    MyVoteResponse:
+      type: object
+      properties:
+        optionId:
+          type: integer
+          nullable: true
+        votedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [optionId, votedAt]
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        status:
+          type: string
+        upvotes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            username:
+              type: string
+            avatarUrl:
+              type: string
+              nullable: true
+          required: [id, name, username]
+        replies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+      required: [id, body, status, upvotes, createdAt, user, replies]
+
+    CommentListResponse:
+      type: object
+      properties:
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required: [comments, total, page, limit, totalPages]
+
+    CreateCommentBody:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        parentId:
+          type: integer
+          nullable: true
+      required: [body]
+
+    SuggestionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        categoryId:
+          type: integer
+        proposedOptions:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        sourceLinks:
+          type: array
+          items:
+            type: string
+        regionRelevance:
+          type: string
+          nullable: true
+      required: [title, description, categoryId, proposedOptions]
+
+    Suggestion:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        categoryId:
+          type: integer
+        proposedOptions:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        sourceLinks:
+          type: array
+          items:
+            type: string
+        moderationStatus:
+          type: string
+          enum: [pending, approved, rejected]
+        moderatorNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        submittedBy:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            username:
+              type: string
+          required: [id, name, username]
+      required: [id, title, description, categoryId, proposedOptions, tags, sourceLinks, moderationStatus, createdAt, submittedBy]
+
+    ReviewSuggestionBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected]
+        moderatorNote:
+          type: string
+          nullable: true
+      required: [status]
+
+    ReportBody:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum: [poll, comment, suggestion]
+        entityId:
+          type: integer
+        reason:
+          type: string
+        note:
+          type: string
+          nullable: true
+      required: [entityType, entityId, reason]
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        reason:
+          type: string
+        note:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, reviewed, resolved, dismissed]
+        createdAt:
+          type: string
+          format: date-time
+        reportedBy:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            username:
+              type: string
+          required: [id, name, username]
+      required: [id, entityType, entityId, reason, status, createdAt, reportedBy]
+
+    AnalyticsSummary:
+      type: object
+      properties:
+        totalPolls:
+          type: integer
+        openPolls:
+          type: integer
+        totalVotes:
+          type: integer
+        totalUsers:
+          type: integer
+        totalComments:
+          type: integer
+        mostActiveCategory:
+          type: string
+          nullable: true
+        newPollsThisWeek:
+          type: integer
+        newVotesThisWeek:
+          type: integer
+      required: [totalPolls, openPolls, totalVotes, totalUsers, totalComments, newPollsThisWeek, newVotesThisWeek]
+
+    CategoryBreakdown:
+      type: object
+      properties:
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        categorySlug:
+          type: string
+        color:
+          type: string
+        pollCount:
+          type: integer
+        totalVotes:
+          type: integer
+      required: [categoryId, categoryName, categorySlug, color, pollCount, totalVotes]
+
+    CreatePollBody:
+      type: object
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+        pollType:
+          type: string
+          enum: [binary, multiple_choice]
+        options:
+          type: array
+          items:
+            type: string
+          minItems: 2
+        regionScope:
+          type: string
+          enum: [national, wilaya]
+        wilayaCode:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [draft, open, closed, upcoming, archived]
+        opensAt:
+          type: string
+          format: date-time
+          nullable: true
+        closesAt:
+          type: string
+          format: date-time
+          nullable: true
+        editorialNote:
+          type: string
+          nullable: true
+        methodologyNote:
+          type: string
+          nullable: true
+        sourceLinks:
+          type: array
+          items:
+            type: string
+        isFeatured:
+          type: boolean
+      required: [title, categoryId, pollType, options, regionScope, status]
+
+    ToggleFeatureBody:
+      type: object
+      properties:
+        isFeatured:
+          type: boolean
+      required: [isFeatured]

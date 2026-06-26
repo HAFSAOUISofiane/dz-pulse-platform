@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "DzPulse"
+version = "1.0.0"
+id = "artifacts/dzpulse"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22676
+
+[services.development]
+run = "pnpm --filter @workspace/dzpulse run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dzpulse", "run", "build" ]
+publicDir = "artifacts/dzpulse/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22676"
+BASE_PATH = "/"

@@ -1,0 +1,368 @@
+Act as a senior full-stack product engineer, UX designer, and information architecture specialist.
+
+You are improving my existing web app called DzPulse.
+
+PROJECT IDENTITY
+DzPulse is NOT a prediction market, betting app, or trading platform.
+DzPulse is a public opinion collector focused on Algeria.
+Users explore polls, vote once per poll, discuss issues, and eventually submit poll ideas.
+The platform should feel serious, modern, information-dense, trustworthy, and highly engaging.
+You may take inspiration from Polymarket’s structure, discovery, density, and clarity, but you must NOT copy trading mechanics, odds, prices, liquidity, prediction-market language, or gambling patterns.
+
+HIGH-LEVEL GOAL
+Redesign and improve DzPulse so it feels as sharp, structured, and engaging as Polymarket, but adapted for a civic/public-opinion use case.
+
+CURRENT DZPULSE STATE
+The platform currently has:
+- Homepage with hero, featured polls, trending polls, topics, latest polls, and “How it works”
+- Explore page with search, topic filters, status/trending filters, geography filter
+- Poll detail pages with question, description, answer choices, vote count, tags, discussion, and details
+- Sign in page
+- Registration page
+- Submit flow gated behind auth
+- Messaging around: live public opinion in Algeria, one vote per person, transparent methodology, editorial standards, topic/region/time exploration
+
+IMPORTANT DESIGN REFERENCE
+Use Polymarket as inspiration for:
+- information density
+- strong search and category discovery
+- issue/event grouping
+- useful card metadata
+- clear result/status surfaces
+- structured navigation
+- tabbed content architecture
+- “live platform” feel
+- trust infrastructure pages
+
+But DO NOT copy:
+- trading
+- odds
+- buy/sell
+- liquidity
+- prices
+- financial incentives
+- prediction market terminology
+- gambling UX patterns
+
+CORE PRODUCT DIRECTION
+The improved DzPulse should become:
+“Opinion intelligence for Algeria”
+not “prediction trading for events”
+
+TRANSLATION OF POLYMARKET IDEAS INTO DZPULSE
+Translate these concepts carefully:
+- “markets” → polls
+- “events” → issue pages or topic clusters
+- “volume” → participation depth / total votes
+- “activity” → vote momentum / discussion momentum
+- “watchlist” → saved polls / followed topics
+- “market integrity” → voting integrity / methodology / editorial standards
+- “event pages” → issue pages containing grouped related polls
+- “comments” → civic discussion
+- “trending markets” → most active or fastest-changing polls
+
+DELIVERABLE
+Improve the existing app directly.
+Do not just describe changes — implement them.
+If something is missing in the current structure, create it.
+Preserve and upgrade the existing brand, but make the product much sharper and more premium.
+
+IMPLEMENTATION PRIORITIES
+
+1. GLOBAL DESIGN UPGRADE
+Redesign the visual system so DzPulse feels more professional, modern, dense, and trustworthy.
+Design characteristics:
+- Clean, dark-modern or dark-neutral aesthetic with strong readability
+- Information-dense cards and layouts
+- Better hierarchy and spacing
+- Premium feel without becoming flashy
+- Serious civic-tech tone, not crypto-gambling tone
+- Smooth hover states and polished interactions
+- Strong use of badges, metadata rows, section labels, tabs, chips, and compact cards
+- Improve typography, spacing, borders, surface layers, and navigation density
+- Keep the UI elegant and functional
+
+2. HEADER + NAVIGATION
+Upgrade the top navigation to feel more like a serious information platform.
+Include:
+- Logo
+- Global search
+- Top nav links: Explore, Topics, Methodology, Submit Poll
+- Auth area or user menu
+- Sticky header on scroll
+- Better category/topic shortcuts below header or in a subnav
+
+3. HOMEPAGE REDESIGN
+Transform the homepage into a richer, more structured platform front page.
+
+Homepage should include:
+- Hero section with stronger trust framing
+- Search bar or quick search entry point
+- Trust strip under hero:
+  - One vote per account
+  - Editorially reviewed polls
+  - Algeria-focused public opinion
+  - Transparent methodology
+- Featured polls section
+- Most active polls section
+- Fastest-changing polls section
+- Topics grid
+- Issue clusters / major debates
+- Latest polls section
+- “How DzPulse works” section
+- Footer with important trust/system pages
+
+The homepage must feel more alive and analytical, not just like a static landing page.
+
+4. POLL CARD REDESIGN
+Redesign all poll cards across homepage and explore pages.
+
+Each poll card should show:
+- Topic badge
+- Poll status badge: Live / Closing Soon / Closed / Archived
+- Optional “Trending” or “Fast-moving” badge
+- Poll title
+- Short context line
+- Total votes
+- Comment count
+- Region scope: National or specific wilaya
+- Last updated time
+- Result snapshot such as leading option + percentage
+- If applicable: editorial/review badge
+
+Cards should feel compact, rich, and highly scannable.
+
+5. EXPLORE PAGE UPGRADE
+Make Explore much more powerful and useful.
+
+Required features:
+- Prominent search bar
+- Filter chips for topics
+- Status filters: Live, Trending, Closing Soon, Closed
+- Region filter
+- Sort dropdown with:
+  - Most active
+  - Newest
+  - Most discussed
+  - Closest split
+  - Fastest changing
+  - Editor’s picks
+- Toggle between card view and denser list view
+- Save filter / follow topic action if possible
+- Empty states that guide the user usefully
+
+Top of page should include a smart summary line like:
+“Showing live polls in Economy, Algeria-wide, sorted by most active.”
+
+6. ISSUE PAGES / TOPIC CLUSTERS
+Create a new concept inspired by Polymarket event pages:
+Issue Pages.
+
+An issue page groups multiple related polls under one public issue.
+Examples:
+- Youth Employment
+- Constitutional Reform
+- Startup Ecosystem
+- Public Healthcare
+- Education Language Policy
+
+Each issue page should include:
+- Issue title and short description
+- Related polls
+- Summary of where opinion stands across related questions
+- Topic tags
+- Activity indicators
+- Recent movement
+- Related discussion or editorial notes
+
+These issue pages are one of the most important product improvements.
+
+7. POLL DETAIL PAGE REDESIGN
+Redesign poll pages into a more structured intelligence view.
+
+Use tabs or segmented sections:
+- Overview
+- Trend
+- Region
+- Discussion
+- Methodology
+
+The poll page should include:
+- Poll title
+- Topic and tags
+- Status badge
+- Editorial review badge
+- Created date
+- Closing date or open status
+- Region scope
+- Voting card
+- Trust note: one vote per account, anonymous participation
+- Result bar visualization
+- Total votes
+- Comment count
+- Trend chart or trend placeholder
+- Region breakdown section
+- Context/editorial explanation
+- Discussion section
+- Related polls
+- Report poll action
+- Follow / save poll action
+
+Even if not all data exists yet, scaffold the UI so it is ready.
+
+8. RESULTS EXPERIENCE
+Implement a richer results design for poll pages.
+
+For beta, include:
+- Horizontal result bars
+- Percentages
+- Raw vote counts
+- Winning / leading option highlight
+- “Last updated” timestamp
+- Placeholder or starter trend visualization
+- Region tab or region section
+- Messaging for when segmentation data is not yet available
+
+Optional if feasible:
+- Tiny sparkline trend
+- “Close race” label if gap is small
+- “Fast-moving” indicator if recent activity is high
+
+Do NOT use probability or trading language.
+
+9. TRUST + CREDIBILITY PAGES
+Add real system pages linked in header/footer:
+- Methodology
+- Editorial Standards
+- How Voting Works
+- Community Guidelines
+- Privacy Policy
+- Terms of Use
+- Report Abuse / Safety
+- About DzPulse
+
+These pages should be real, styled, and consistent with the product.
+They do not need to be legally perfect, but they must exist and feel intentional.
+
+10. SUBMIT POLL FLOW UPGRADE
+Redesign submit flow to be a poll proposal workflow, not instant publishing.
+
+If user is not logged in:
+- Show value proposition and ask them to sign in
+
+If logged in:
+Show a structured submission form with:
+- Poll question
+- Topic/category
+- Poll type
+- Answer options
+- Why this question matters
+- Context/source links
+- Region scope
+- Sensitive topic checkbox
+- Submission note that all proposals are reviewed before publication
+
+Submission states:
+- Submitted
+- Under review
+- Needs revision
+- Approved
+- Rejected
+
+Implement a good UI even if the backend moderation logic is simplified.
+
+11. AUTH FLOW IMPROVEMENTS
+Improve sign-in and registration flows.
+
+Register page should:
+- Be cleaner and better explained
+- Separate essential signup from optional profile enrichment if possible
+- Explain why optional fields like wilaya or age matter
+- Preview what the user can do after signup
+
+Sign-in page should:
+- Explain why signing in matters
+- Highlight vote integrity, comments, following polls, and submissions
+
+12. SOCIAL + RETENTION FEATURES
+Adapt Polymarket-style repeat engagement into DzPulse-compatible features:
+- Save poll
+- Follow topic
+- Follow issue
+- Follow poll
+- Reply notifications placeholder
+- “Most active today” and “biggest shift this week” sections
+- Recent activity module if possible
+
+13. FOOTER + PLATFORM STRUCTURE
+Create a much stronger footer with:
+- Product links
+- Trust links
+- Legal links
+- About/contact links
+- Social placeholders if needed
+- Algeria-focused product positioning
+
+14. ADMIN / STRUCTURE READINESS
+If possible, prepare the frontend structure for future admin features such as:
+- editorial review badges
+- moderation indicators
+- report counts
+- status transitions
+Even if admin UI is not fully built now, the product should be architected for it.
+
+TECHNICAL INSTRUCTIONS
+- Improve the existing app, not a disconnected mockup
+- Keep the stack consistent with the current Replit project
+- Reuse existing routes and components where practical
+- Refactor components if needed
+- Use reusable UI components for badges, cards, tabs, section headers, metadata rows, trust banners, filter chips
+- Make design responsive for desktop and mobile
+- Ensure strong visual hierarchy and accessibility
+- Prefer clean reusable components over hacked one-off elements
+
+COPYWRITING GUIDANCE
+Use product copy that sounds like a serious civic-tech platform.
+Avoid:
+- hype language
+- crypto-style language
+- gambling tone
+- vague startup buzzwords
+
+Good tone:
+- calm
+- precise
+- analytical
+- trustworthy
+- civic-minded
+- modern
+
+EXAMPLE MICROCOPY DIRECTIONS
+Use phrases like:
+- Live public opinion in Algeria
+- Explore how opinion is shifting
+- One vote per account
+- Editorially reviewed questions
+- Follow the issues shaping Algeria
+- See where sentiment stands
+- Public opinion, organized by topic, region, and time
+
+Do not use phrases like:
+- trade your view
+- real-time odds
+- bet on outcomes
+- market prices
+- liquidity
+- positions
+
+FINAL OUTPUT EXPECTATION
+I want you to:
+1. audit the current codebase and existing UI
+2. implement the redesigned information architecture and UI improvements
+3. add the new pages and components
+4. improve the design system and component density
+5. scaffold missing sections where needed
+6. leave the app in a much more launch-ready state
+
+Before making changes, briefly summarize your implementation plan.
+Then execute the improvements directly in the codebase.

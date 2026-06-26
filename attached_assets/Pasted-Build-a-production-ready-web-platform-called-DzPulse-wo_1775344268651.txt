@@ -1,0 +1,804 @@
+Build a production-ready web platform called “DzPulse” (working name), inspired by the browsing experience and card-based UI structure of Polymarket, but STRICTLY for public opinion polling and sentiment aggregation in Algeria only.
+
+This is NOT a betting app, NOT a prediction market, and NOT a trading platform.
+There must be:
+- no money
+- no wallets
+- no crypto
+- no buy/sell
+- no odds
+- no shares
+- no portfolio
+- no wagering language
+- no gambling mechanics
+
+The platform is a modern Algeria-only polling platform where users vote on public-interest questions and explore live sentiment across Algeria.
+
+==================================================
+1. PRODUCT GOAL
+==================================================
+
+Create a platform where Algerian users can:
+- browse live polls
+- vote once per poll
+- see real-time results
+- filter polls by category, status, region, popularity, and recency
+- view poll detail pages
+- discuss polls in comments
+- submit poll suggestions
+- see trending sentiment across topics in Algeria
+- optionally view results by demographic and wilaya if data is available
+
+The core UX should feel similar to Polymarket in structure:
+- card-based browse page
+- strong event/poll titles
+- category tabs
+- search
+- trending sections
+- detail pages per poll
+- clean market-like layout
+
+But the visual identity should be:
+- white theme first
+- brighter, cleaner, more editorial
+- lighter than Polymarket
+- minimalist, premium, sharp, modern
+- same level of information density and clarity as Polymarket
+- no dark gambling vibe
+
+==================================================
+2. DESIGN DIRECTION
+==================================================
+
+Design reference:
+- structurally inspired by Polymarket card discovery and poll detail navigation
+- but use a white-first design system
+- compact, premium dashboard UI
+- neutral surfaces, subtle borders, restrained accent color
+- Algerian identity should be subtle and elegant, not cliché
+
+Theme:
+- primary background: white / off-white
+- cards: white with soft borders and shallow shadows
+- text: deep charcoal
+- accent: green inspired by Algerian flag, but used sparingly
+- secondary accent: muted red only for highlights or category signals
+- light mode default
+- dark mode optional but included
+
+Style keywords:
+- premium
+- sharp
+- trustworthy
+- civic-tech
+- informative
+- modern newsroom + product UI
+- clean Swiss-inspired layout
+
+Use a layout system that feels like:
+- Polymarket meets modern analytics dashboard
+- but adapted for polls and civic sentiment
+
+Typography:
+- use a strong sans-serif UI font
+- compact scale
+- no oversized hero text inside app pages
+- homepage can have a stronger display title, but the application itself should remain compact
+
+Must follow web-app best practices:
+- sidebar or top navigation
+- sticky filters
+- excellent mobile behavior
+- skeleton loaders
+- empty states
+- error states
+- responsive poll cards
+- clean keyboard navigation
+- accessible contrast
+
+==================================================
+3. BRANDING
+==================================================
+
+Create a custom inline SVG logo for DzPulse.
+Requirements:
+- geometric
+- simple
+- memorable
+- works in monochrome and green accent
+- suitable for favicon and sidebar/header
+- no gradients
+- no cliché ballot-box icon unless highly stylized
+- should feel like a signal / pulse / voice / vote mark
+
+Add a short brand line:
+“Live public opinion in Algeria”
+
+==================================================
+4. INFORMATION ARCHITECTURE
+==================================================
+
+Create these views and flows:
+
+A. Public homepage
+- hero section
+- featured polls
+- trending now
+- categories
+- latest polls
+- how it works
+- trust/safety/editorial standards section
+- CTA to browse polls
+
+B. Explore polls page
+- searchable grid/list of polls
+- filters:
+  - category
+  - status (open, closed, upcoming)
+  - sort (trending, latest, most voted, controversial)
+  - wilaya / national
+  - poll type (binary, multiple choice, ranked if enabled)
+- category chips
+- sticky filter bar
+- compact poll cards
+
+C. Poll detail page
+- question/title
+- short description/context
+- options to vote
+- live percentages
+- total votes
+- trend chart if historical vote snapshots exist
+- tags
+- created date
+- closing date
+- editorial/source notes
+- share button
+- report poll button
+- comments section
+- related polls
+
+D. Submit poll page
+- user suggests a new poll
+- form fields:
+  - title
+  - description
+  - category
+  - options
+  - tags
+  - source links
+  - region relevance
+- moderation notice
+
+E. Admin / moderator dashboard
+- review submitted polls
+- approve / reject / edit
+- manage categories
+- manage featured polls
+- monitor reports
+- soft-delete comments
+- analytics overview
+
+F. User profile
+- basic profile
+- polls voted on
+- saved polls
+- submitted poll ideas
+- badges or credibility score optional
+- no portfolio, no financial terms
+
+G. Authentication
+- email/password
+- magic link optional
+- social login optional
+- guest browsing allowed
+- voting requires account or verified session
+
+==================================================
+5. CORE ENTITIES / DATA MODEL
+==================================================
+
+Design the backend data model with these entities:
+
+1. User
+- id
+- name
+- username
+- email
+- password_hash
+- role (user, moderator, admin)
+- avatar_url
+- bio
+- wilaya
+- age_range (optional)
+- created_at
+- status
+
+2. Category
+- id
+- name
+- slug
+- description
+- color
+- icon
+- is_active
+- order_index
+
+3. Topic
+- id
+- title
+- slug
+- category_id
+- description
+- cover_image
+- region_scope (national / wilaya)
+- tags
+- status
+- created_at
+
+4. Poll
+- id
+- topic_id
+- title
+- slug
+- subtitle
+- description
+- poll_type (binary, multiple_choice)
+- status (draft, open, closed, upcoming, archived)
+- region_scope
+- wilaya_code nullable
+- created_by
+- approved_by
+- opens_at
+- closes_at
+- total_votes
+- unique_voters
+- is_featured
+- is_trending
+- editorial_note
+- methodology_note
+- source_links JSON
+- created_at
+- updated_at
+
+5. PollOption
+- id
+- poll_id
+- label
+- slug
+- display_order
+- vote_count
+- percentage_cache
+
+6. Vote
+- id
+- poll_id
+- option_id
+- user_id
+- ip_hash
+- user_agent_hash
+- created_at
+- unique constraint to prevent duplicate votes per user/session based on policy
+
+7. PollSnapshot
+- id
+- poll_id
+- snapshot_at
+- total_votes
+- option_breakdown JSON
+- used for trend charts
+
+8. Comment
+- id
+- poll_id
+- user_id
+- parent_id nullable
+- body
+- status
+- upvotes
+- created_at
+
+9. PollSuggestion
+- id
+- submitted_by
+- title
+- description
+- category_id
+- proposed_options JSON
+- tags JSON
+- source_links JSON
+- moderation_status
+- moderator_note
+- created_at
+
+10. Report
+- id
+- entity_type
+- entity_id
+- reported_by
+- reason
+- note
+- status
+- created_at
+
+==================================================
+6. POLLING RULES
+==================================================
+
+Implement strict polling logic:
+- one vote per user per poll
+- guest mode may browse only
+- if anonymous voting is allowed, use strong anti-spam logic
+- prevent duplicate votes using:
+  - authenticated account
+  - IP hash
+  - device/user-agent hash
+  - rate limiting
+- allow vote change only if explicitly enabled before poll closes
+- closed polls become read-only
+- upcoming polls display countdown
+- show percentages and total votes after submission
+- configurable visibility:
+  - immediate results
+  - delayed results
+  - results only after vote
+
+==================================================
+7. ALGERIA-SPECIFIC SCOPE
+==================================================
+
+The platform is only for Algeria.
+Requirements:
+- all content scoped to Algeria
+- default language architecture should support Arabic, French, and English
+- default seeded content can be English for now, but architecture must be multilingual
+- include wilaya-aware filtering
+- region model should support national and wilaya-level polls
+- add subtle localization patterns relevant to Algeria
+- time zone default: Africa/Algiers
+- content moderation policy must be careful for political and sensitive civic topics
+- platform should support categories relevant to Algerian public opinion:
+  - politics
+  - economy
+  - society
+  - youth
+  - education
+  - startups/tech
+  - sports
+  - culture
+  - regional issues
+
+==================================================
+8. INITIAL SEEDED POLLS
+==================================================
+
+Seed the app with these initial polls:
+
+- Do you think Algeria’s economy will improve over the next 12 months?
+  Options: Yes / No
+
+- What is the biggest issue facing Algerian youth today?
+  Options: Jobs / Housing / Education / Cost of living / Migration opportunities
+
+- Do you approve of the government’s handling of cost of living pressures?
+  Options: Approve / Disapprove / Unsure
+
+- Which reform should Algeria prioritize first?
+  Options: Jobs / Housing / Education / Healthcare
+
+- Are you optimistic about starting a business in Algeria today?
+  Options: Yes / No / Not sure
+
+- Do you think digital services in Algeria are improving fast enough?
+  Options: Yes / No
+
+- Should Algeria invest more in startup and innovation ecosystems?
+  Options: Yes / No
+
+- Which sector offers the best future for Algeria?
+  Options: Energy / Industry / Technology / Tourism / Agriculture
+
+- Do you think the Algerian national football team is on the right track?
+  Options: Yes / No / Too early to tell
+
+- Should local municipalities publish more public performance data?
+  Options: Yes / No
+
+- Do you trust online polls as a way to reflect Algerian public opinion?
+  Options: Yes / No / Partially
+
+- Would you like poll results broken down by wilaya when sample size allows?
+  Options: Yes / No
+
+==================================================
+9. FRONTEND REQUIREMENTS
+==================================================
+
+Build the frontend with a production-ready stack:
+- Next.js latest stable
+- TypeScript
+- Tailwind CSS
+- shadcn/ui or a similarly clean component system
+- Lucide icons
+- React Query / TanStack Query for server data
+- Zustand or lightweight state where useful
+- Framer Motion only where needed, subtle motion only
+
+Frontend requirements:
+- white-first Polymarket-inspired card UI
+- sticky top nav or left sidebar depending on viewport
+- responsive poll cards
+- compact high-density data presentation
+- beautiful search and filter UX
+- real-time updating vote bars
+- elegant skeleton states
+- strong empty states
+- accessible forms
+- toast notifications for background success
+- inline errors for validation
+
+Pages/components to build:
+- App shell
+- Header
+- Sidebar / mobile drawer
+- Search bar
+- Category chips
+- Poll card
+- Featured poll card
+- Poll detail hero
+- Vote options component
+- Results bar chart/progress UI
+- Related polls carousel/grid
+- Comment list + composer
+- Submit poll form
+- Admin review table
+- User profile cards
+
+Poll card should include:
+- category
+- title
+- subtitle or one-line context
+- total votes
+- status badge
+- closes in / closed date
+- 2-option or multi-option quick preview
+- subtle trend indicator if available
+
+==================================================
+10. BACKEND REQUIREMENTS
+==================================================
+
+Build a robust backend API with:
+- Node.js
+- NestJS or Express with clean modular architecture
+- PostgreSQL
+- Prisma ORM
+- Redis for caching/rate limits
+- JWT auth
+- role-based access control
+- REST API (required)
+- optional GraphQL layer if useful
+
+Backend modules:
+- auth
+- users
+- categories
+- topics
+- polls
+- votes
+- comments
+- suggestions
+- reports
+- admin
+- analytics
+- search
+
+Key backend behaviors:
+- create/edit/open/close polls
+- cast vote
+- prevent duplicate voting
+- recalculate percentages
+- create poll snapshots
+- fetch trending polls
+- fetch featured polls
+- search polls
+- moderation workflows
+- comment moderation
+- analytics endpoints
+- audit logging for admin actions
+
+==================================================
+11. API SPECIFICATION
+==================================================
+
+Design and implement these REST endpoints:
+
+Auth:
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/logout
+- GET /api/auth/me
+
+Categories:
+- GET /api/categories
+- POST /api/categories
+- PATCH /api/categories/:id
+- DELETE /api/categories/:id
+
+Topics:
+- GET /api/topics
+- GET /api/topics/:slug
+- POST /api/topics
+- PATCH /api/topics/:id
+
+Polls:
+- GET /api/polls
+- GET /api/polls/featured
+- GET /api/polls/trending
+- GET /api/polls/:slug
+- POST /api/polls
+- PATCH /api/polls/:id
+- POST /api/polls/:id/open
+- POST /api/polls/:id/close
+- POST /api/polls/:id/vote
+- GET /api/polls/:id/results
+- GET /api/polls/:id/snapshots
+- GET /api/polls/:id/related
+
+Comments:
+- GET /api/polls/:id/comments
+- POST /api/polls/:id/comments
+- PATCH /api/comments/:id
+- DELETE /api/comments/:id
+
+Suggestions:
+- POST /api/suggestions
+- GET /api/suggestions/my
+- GET /api/admin/suggestions
+- POST /api/admin/suggestions/:id/approve
+- POST /api/admin/suggestions/:id/reject
+
+Reports:
+- POST /api/reports
+- GET /api/admin/reports
+- PATCH /api/admin/reports/:id
+
+Users:
+- GET /api/users/me
+- PATCH /api/users/me
+- GET /api/users/:username
+
+Analytics:
+- GET /api/analytics/overview
+- GET /api/analytics/polls/:id
+- GET /api/analytics/trends
+
+Search:
+- GET /api/search?q=
+- GET /api/search/suggestions?q=
+
+All list endpoints should support:
+- pagination
+- sorting
+- filtering
+- category
+- region
+- status
+- date ranges
+- search terms
+
+==================================================
+12. TRENDING & RANKING LOGIC
+==================================================
+
+Implement a trending algorithm that is transparent and non-financial.
+
+Possible formula inputs:
+- recent vote velocity
+- total votes
+- comment activity
+- recency
+- save/share activity
+- editorial boost for featured polls
+
+Create:
+- trending today
+- most voted
+- newly added
+- controversial (close result split)
+- closing soon
+
+==================================================
+13. MODERATION & TRUST
+==================================================
+
+This is important.
+Build an editorial/moderation layer with:
+- poll approval workflow
+- source link support
+- methodology note support
+- report abuse flow
+- spam detection
+- profanity filter
+- sensitive-topic review queue
+- admin notes
+- soft deletion
+- audit trail
+
+Add visible trust elements in UI:
+- editorial standards page
+- how results are calculated
+- anti-manipulation notice
+- “one person, one vote” policy explanation
+- report poll action
+- source/reference links where relevant
+
+==================================================
+14. DATABASE / PRISMA
+==================================================
+
+Provide:
+- complete Prisma schema
+- migrations
+- seed script with initial categories and polls
+- indexes for slug, status, created_at, category, region
+- unique constraints for voting integrity
+
+==================================================
+15. REAL-TIME / LIVE FEEL
+==================================================
+
+Implement a live-feeling experience using:
+- polling or websockets/SSE
+- live vote count updates
+- result bars animating smoothly
+- “updated x seconds ago”
+- optimistic UI after voting
+- background refresh without jank
+
+==================================================
+16. SEARCH & DISCOVERY
+==================================================
+
+Create powerful discovery:
+- full-text search for polls/topics
+- suggested searches
+- trending tags
+- category pages
+- related polls
+- featured collections
+- “Because you viewed” optional
+- save/bookmark polls
+
+==================================================
+17. ANALYTICS DASHBOARD
+==================================================
+
+Admin analytics should show:
+- total users
+- total votes
+- active polls
+- votes per day
+- top categories
+- top wilayas
+- engagement rate
+- suggestion approval rate
+- flagged content volume
+
+Include charts/tables for moderators/admins.
+
+==================================================
+18. SECURITY
+==================================================
+
+Implement:
+- rate limiting
+- input validation with Zod or class-validator
+- CSRF protection where relevant
+- secure password hashing
+- JWT refresh strategy if needed
+- anti-spam vote protections
+- IP hashing, not raw storage if possible
+- audit logging
+- role checks on admin endpoints
+
+==================================================
+19. PERFORMANCE
+==================================================
+
+Optimize for:
+- fast initial load
+- server-side rendering where beneficial
+- cached public poll lists
+- incremental revalidation if appropriate
+- image optimization
+- database indexes
+- lazy-loading comment threads
+
+==================================================
+20. MOBILE EXPERIENCE
+==================================================
+
+Mobile is critical.
+Build:
+- sticky bottom action for vote on detail page
+- smooth filter drawer
+- readable compact cards
+- touch-friendly vote buttons
+- no hover-dependent interactions
+- excellent performance on mid-range Android devices
+
+==================================================
+21. DELIVERABLES
+==================================================
+
+Output the project as a full implementation plan and codebase structure including:
+
+1. product overview
+2. architecture diagram in text
+3. folder structure for frontend and backend
+4. complete database schema
+5. complete API contract
+6. UI component map
+7. page-by-page breakdown
+8. Prisma schema
+9. seed data
+10. backend route/controller/service structure
+11. frontend route structure
+12. sample environment variables
+13. core code for major flows
+14. vote casting logic
+15. trending algorithm logic
+16. moderation flow logic
+17. deployment instructions
+18. README
+19. future roadmap
+
+==================================================
+22. CODE QUALITY
+==================================================
+
+Requirements:
+- clean modular code
+- reusable components
+- strong typing
+- comments only where useful
+- no mock gambling language
+- all naming should match polling, public opinion, participation, results, and sentiment
+
+==================================================
+23. IMPORTANT LANGUAGE REPLACEMENTS
+==================================================
+
+Never use:
+- trade
+- shares
+- odds
+- portfolio
+- market price
+- winnings
+- positions
+- order book
+- bet
+
+Use instead:
+- vote
+- results
+- sentiment
+- participation
+- pulse
+- trend
+- public opinion
+- community response
+
+==================================================
+24. FINAL OUTPUT STYLE
+==================================================
+
+When generating the project:
+- think like a senior product designer + senior full-stack engineer
+- create a realistic, buildable architecture
+- make the UI polished and launch-quality
+- keep the visual structure inspired by Polymarket discovery pages
+- but transform it into a civic polling platform for Algeria
+- white theme, premium, minimal, fast, trustworthy
