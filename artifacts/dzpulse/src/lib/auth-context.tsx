@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode, useState, useCallback, useEffect } from "react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { apiFetch } from "@/lib/api-fetch";
 import type { User } from "@workspace/api-client-react";
 
 interface AuthContextType {
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    fetch("/api/auth/me", {
+    apiFetch("/api/auth/me", {
       headers: { Authorization: `Bearer ${storedToken}` },
     })
       .then(res => {

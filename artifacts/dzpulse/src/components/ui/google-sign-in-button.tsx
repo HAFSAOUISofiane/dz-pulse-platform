@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api-fetch";
 
 type OAuthStatus = "loading" | "enabled" | "disabled";
 
 async function fetchGoogleOAuthEnabled(): Promise<boolean> {
   try {
-    const res = await fetch("/api/auth/config");
+    const res = await apiFetch("/api/auth/config");
     if (!res.ok) return false;
     const data = await res.json();
     return !!data.googleOAuthEnabled;

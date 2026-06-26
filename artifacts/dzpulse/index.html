@@ -73,6 +73,18 @@
     }
     </script>
 
+    <!-- SPA routing: restore path after 404.html redirect -->
+    <script>
+      (function(){
+        var p = new URLSearchParams(window.location.search).get('p');
+        if (p) {
+          var q = new URLSearchParams(window.location.search).get('q');
+          var base = window.location.pathname.replace(/\/$/, '');
+          window.history.replaceState(null, null, base + '/' + p + (q ? '?' + q : '') + window.location.hash);
+        }
+      })();
+    </script>
+
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-57WPBBEC4Y"></script>
     <script>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
+import { apiFetch } from "@/lib/api-fetch";
 import { Users, Clock, Zap, TrendingUp, Flag, Lightbulb, MapPin, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -233,7 +234,7 @@ export function MarketCard({ poll }: MarketCardProps) {
 
   // Fetch server-side vote on mount (for auth users and IP-based for anon)
   useEffect(() => {
-    fetch(`/api/polls/${poll.slug}/my-vote`, {
+    apiFetch(`/api/polls/${poll.slug}/my-vote`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => res.ok ? res.json() : null)
@@ -255,7 +256,7 @@ export function MarketCard({ poll }: MarketCardProps) {
       if (captchaToken !== undefined) body.captchaToken = captchaToken;
       if (captchaAnswer !== undefined) body.captchaAnswer = captchaAnswer;
 
-      const res = await fetch(`/api/polls/${poll.slug}/vote`, {
+      const res = await apiFetch(`/api/polls/${poll.slug}/vote`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

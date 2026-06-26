@@ -45,7 +45,8 @@ const TABS: { id: AdminTab; label: string; icon: any }[] = [
 
 function adminFetch(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem("dzpulse_token");
-  return fetch(`/api${path}`, {
+  const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+  return fetch(`${BASE}/api${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

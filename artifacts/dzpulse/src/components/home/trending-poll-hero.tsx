@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
+import { apiFetch } from "@/lib/api-fetch";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { ChevronLeft, ChevronRight, TrendingUp, Users, Zap, ExternalLink, Flame, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -110,7 +111,7 @@ export function TrendingPollHero({ polls, loading, categories = [], onVote }: Pr
     abortRef.current = ctrl;
     setTimelineLoading(true);
     try {
-      const res = await fetch(`/api/polls/${slug}/timeline?range=${r}`, { signal: ctrl.signal });
+      const res = await apiFetch(`/api/polls/${slug}/timeline?range=${r}`, { signal: ctrl.signal });
       if (res.ok) {
         const data: TimelineData = await res.json();
         setTimeline(data);

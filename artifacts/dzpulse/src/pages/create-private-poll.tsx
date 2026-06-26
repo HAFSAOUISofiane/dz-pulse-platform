@@ -15,7 +15,8 @@ function apiFetch(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem("dzpulse_token");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(`/api${path}`, { ...options, headers: { ...headers, ...(options.headers ?? {}) } });
+  const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+  return fetch(`${BASE}/api${path}`, { ...options, headers: { ...headers, ...(options.headers ?? {}) } });
 }
 
 type OptionRow = { label: string; labelAr: string; labelFr: string; imageUrl: string };

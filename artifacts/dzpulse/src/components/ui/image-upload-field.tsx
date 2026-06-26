@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Upload, X, Link, Image as ImageIcon, Loader2 } from "lucide-react";
+import { apiFetch } from "@/lib/api-fetch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function ImageUploadField({
     try {
       // Step 1: Get presigned URL
       const token = adminToken || localStorage.getItem("dzpulse_token") || "";
-      const metaRes = await fetch("/api/storage/uploads/request-url", {
+      const metaRes = await apiFetch("/api/storage/uploads/request-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

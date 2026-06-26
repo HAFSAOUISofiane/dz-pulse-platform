@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useParams, Link } from "wouter";
+import { apiFetch } from "@/lib/api-fetch";
 import { usePollLive } from "@/hooks/use-poll-live";
 import { Flag, ChevronLeft, Calendar, MapPin, ExternalLink, Bookmark, TrendingUp, BarChart2, Share2, X, Clock, Copy, Check, QrCode, Image as ImageIcon, Loader2, Link as LinkIcon } from "lucide-react";
 import { ShareMenu } from "@/components/polls/share-menu";
@@ -47,7 +48,7 @@ export default function PollDetailPage() {
       queryKey: [...getGetPollBySlugQueryKey(slug), lang],
       queryFn: async ({ signal }: any) => {
         const token = localStorage.getItem("dzpulse_token") ?? "";
-        const r = await fetch(`/api/polls/${slug}?lang=${lang}`, {
+        const r = await apiFetch(`/api/polls/${slug}?lang=${lang}`, {
           signal,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -65,7 +66,7 @@ export default function PollDetailPage() {
         const anonId = localStorage.getItem("dzpulse_anon_id") ?? "";
         const token = localStorage.getItem("dzpulse_token") ?? "";
         const url = `/api/polls/${slug}/my-vote${anonId ? `?anonymousId=${encodeURIComponent(anonId)}` : ""}`;
-        const r = await fetch(url, {
+        const r = await apiFetch(url, {
           signal,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -80,7 +81,7 @@ export default function PollDetailPage() {
       queryKey: [...getGetRelatedPollsQueryKey(slug), lang],
       queryFn: async ({ signal }: any) => {
         const token = localStorage.getItem("dzpulse_token") ?? "";
-        const r = await fetch(`/api/polls/${slug}/related?lang=${lang}`, {
+        const r = await apiFetch(`/api/polls/${slug}/related?lang=${lang}`, {
           signal,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });

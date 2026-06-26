@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Users, RefreshCw, Image, Loader2 } from "lucide-react";
+import { apiFetch } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
 import { getGetPollBySlugQueryKey, getGetMyVoteQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -74,7 +75,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
       if (captchaToken !== undefined) body.captchaToken = captchaToken;
       if (captchaAnswer !== undefined) body.captchaAnswer = captchaAnswer;
 
-      const res = await fetch(`/api/polls/${poll.slug}/vote`, {
+      const res = await apiFetch(`/api/polls/${poll.slug}/vote`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
