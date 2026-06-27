@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, isNull, asc, or, sql } from "drizzle-orm";
+import { eq, and, isNull, asc, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { pollsTable, pollOptionsTable, votesTable, usersTable } from "@workspace/db";
 import { CastVoteParams, GetMyVoteParams } from "@workspace/api-zod";
@@ -138,19 +138,11 @@ router.post("/polls/:slug/vote", optionalAuthMiddleware, async (req, res) => {
         .limit(1);
       existing = row;
     } else {
-      // Anonymous: match by anonymousId first, then fall back to ipHash
-      if (anonymousId) {
-        const [row] = await db.select().from(votesTable)
-          .where(and(eq(votesTable.anonymousId, anonymousId), eq(votesTable.pollId, poll.id), isNull(votesTable.userId)))
-          .limit(1);
-        existing = row;
-      }
-      if (!existing) {
-        const [row] = await db.select().from(votesTable)
-          .where(and(eq(votesTable.ipHash, ipHash), eq(votesTable.pollId, poll.id), isNull(votesTable.userId)))
-          .limit(1);
-        existing = row;
-      }
+      // Anonymous: IP-based dedup only — one vote per IP per poll
+      const [row] = await db.select().from(votesTable)
+        .where(and(eq(votesTable.ipHash, ipHash), eq(votesTable.pollId, poll.id), isNull(votesTable.userId)))
+        .limit(1);
+      existing = row;
     }
 
     if (existing) {
@@ -195,7 +187,7 @@ router.post("/polls/:slug/vote", optionalAuthMiddleware, async (req, res) => {
       pollId: poll.id,
       optionId,
       userId,
-      anonymousId: userId ? null : (anonymousId ?? null),
+      anonymousId: null,
       ipHash,
       wilaya: voterWilaya,
     });
@@ -241,7 +233,6 @@ router.get("/polls/:slug/my-vote", optionalAuthMiddleware, async (req, res) => {
   if (!params.success) { res.status(400).json({ error: "Invalid slug" }); return; }
 
   const ipHash = hashIp(getClientIp(req));
-  const anonymousId = typeof req.query.anonymousId === "string" ? req.query.anonymousId.slice(0, 64) : null;
 
   try {
     const [poll] = await db
@@ -262,19 +253,7 @@ router.get("/polls/:slug/my-vote", optionalAuthMiddleware, async (req, res) => {
       return;
     }
 
-    // Anonymous: check by anonymousId first, then fall back to ipHash
-    if (anonymousId) {
-      const [vote] = await db
-        .select()
-        .from(votesTable)
-        .where(and(eq(votesTable.anonymousId, anonymousId), eq(votesTable.pollId, poll.id), isNull(votesTable.userId)))
-        .limit(1);
-      if (vote) {
-        res.json({ optionId: vote.optionId });
-        return;
-      }
-    }
-
+    // Anonymous: IP-based lookup only
     const [vote] = await db
       .select()
       .from(votesTable)

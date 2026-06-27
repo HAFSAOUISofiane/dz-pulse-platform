@@ -25,17 +25,6 @@ interface VoteOptionsProps {
   onVoted?: () => void;
 }
 
-/** Returns a stable UUID for this device, persisted in localStorage. */
-function getDeviceId(): string {
-  const KEY = "dzpulse_anon_id";
-  let id = localStorage.getItem(KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(KEY, id);
-  }
-  return id;
-}
-
 /** Resolves a stored image path to a displayable URL. */
 function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -99,8 +88,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
     }
 
     try {
-      const anonymousId = getDeviceId();
-      const body: Record<string, unknown> = { optionId, anonymousId };
+      const body: Record<string, unknown> = { optionId };
       if (captchaToken !== undefined) body.captchaToken = captchaToken;
       if (captchaAnswer !== undefined) body.captchaAnswer = captchaAnswer;
 
@@ -155,9 +143,10 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
     }
   };
 
-  const handleVote = () => {
-    if (!selectedId || voting) return;
-    castVote(selectedId);
+  const handleOptionClick = (optionId: number) => {
+    if (voting) return;
+    setSelectedId(optionId);
+    castVote(optionId);
   };
 
   const handleCaptchaConfirm = (answer: number) => {
@@ -228,15 +217,16 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
       {hasImages && showVoting ? (
         <div className="flex flex-col gap-2">
           {poll.options.map((option: any) => {
-            const isSelected = option.id === selectedId;
+            const isVoting = voting && option.id === selectedId;
             const imgSrc = resolveImageUrl(option.imageUrl);
             return (
               <button
                 key={option.id}
-                onClick={() => setSelectedId(isSelected ? null : option.id)}
+                onClick={() => handleOptionClick(option.id)}
+                disabled={voting}
                 data-testid={`vote-option-${option.id}`}
-                className={`flex items-center gap-3 w-full rounded-md border px-3 py-2 text-left transition-all ${
-                  isSelected
+                className={`flex items-center gap-3 w-full rounded-md border px-3 py-2 text-left transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                  isVoting
                     ? "border-primary ring-2 ring-primary/20 bg-accent"
                     : "border-border hover:border-primary/50 hover:bg-muted"
                 }`}
@@ -249,12 +239,15 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 )}
-                <span className={`flex-1 text-sm font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
-                  {option.label}
-                </span>
-                {isSelected && (
-                  <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                {isVoting ? (
+                  <span className="flex items-center gap-2 flex-1 text-sm font-medium text-primary">
+                    <Loader2 size={13} className="animate-spin flex-shrink-0" />
+                    {option.label}
+                  </span>
+                ) : (
+                  <span className="flex-1 text-sm font-medium text-foreground">{option.label}</span>
                 )}
+                {isVoting && <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />}
               </button>
             );
           })}
@@ -343,45 +336,41 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
               );
             }
 
+            const isVoting = voting && option.id === selectedId;
             return (
               <button
                 key={option.id}
-                onClick={() => setSelectedId(isSelected ? null : option.id)}
+                onClick={() => handleOptionClick(option.id)}
+                disabled={voting}
                 data-testid={`vote-option-${option.id}`}
-                className={`w-full text-left rounded-md border px-4 py-3 text-sm font-medium transition-all ${
-                  isSelected
+                className={`w-full text-left rounded-md border px-4 py-3 text-sm font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                  isVoting
                     ? "border-primary bg-accent text-accent-foreground"
                     : "border-border hover:border-primary/50 hover:bg-muted text-foreground"
                 }`}
               >
-                {option.label}
+                {isVoting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={13} className="animate-spin" />
+                    {option.label}
+                  </span>
+                ) : option.label}
               </button>
             );
           })}
         </>
       )}
 
-      {showVoting && (
-        <div className="pt-1 flex flex-col gap-2">
+      {showVoting && isChanging && (
+        <div className="pt-1">
           <Button
-            onClick={handleVote}
-            disabled={!selectedId || voting}
-            data-testid="button-submit-vote"
-            className="w-full"
+            variant="ghost"
             size="sm"
+            className="w-full text-xs text-muted-foreground"
+            onClick={() => { setIsChanging(false); setSelectedId(null); }}
           >
-            {voting ? t.recording : t.submitVote}
+            {t.cancel}
           </Button>
-          {isChanging && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-xs text-muted-foreground"
-              onClick={() => { setIsChanging(false); setSelectedId(null); }}
-            >
-              {t.cancel}
-            </Button>
-          )}
         </div>
       )}
 
