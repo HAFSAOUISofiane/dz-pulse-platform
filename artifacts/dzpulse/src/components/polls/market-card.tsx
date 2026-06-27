@@ -221,13 +221,16 @@ export function MarketCard({ poll }: MarketCardProps) {
   const [voting, setVoting] = useState(false);
   const [captchaState, setCaptchaState] = useState<{ token: string; question: string; optionId: number } | null>(null);
   const [captchaError, setCaptchaError] = useState("");
+  const [optimisticVotedId, setOptimisticVotedId] = useState<number | null>(null);
 
   // For authenticated users, we check server-side
   const [serverVotedId, setServerVotedId] = useState<number | null>(null);
 
-  const effectiveVotedId = isAuthenticated ? serverVotedId : localVotedId;
+  const effectiveVotedId = optimisticVotedId ?? (isAuthenticated ? serverVotedId : localVotedId);
 
-  const totalVotes = poll.totalVotes;
+  // Compute totals with optimistic +1 before server confirms
+  const hasOptimistic = optimisticVotedId !== null && (isAuthenticated ? serverVotedId === null : localVotedId === null);
+  const totalVotes = hasOptimistic ? poll.totalVotes + 1 : poll.totalVotes;
   const leadingOption = poll.options.reduce((a, b) => a.voteCount > b.voteCount ? a : b, poll.options[0]);
   const leadingPct = totalVotes > 0 ? Math.round((leadingOption?.voteCount / totalVotes) * 100) : 0;
   const isCloseRace = leadingPct > 0 && leadingPct < 55;
@@ -249,6 +252,10 @@ export function MarketCard({ poll }: MarketCardProps) {
 
   const castVote = async (optionId: number, captchaToken?: string, captchaAnswer?: number) => {
     setVoting(true);
+
+    // Optimistic update — show result immediately
+    setOptimisticVotedId(optionId);
+
     try {
       const anonId = isAuthenticated ? undefined : getAnonId();
       const body: Record<string, unknown> = { optionId };
@@ -267,6 +274,7 @@ export function MarketCard({ poll }: MarketCardProps) {
 
       if (res.status === 429) {
         const err = await res.json().catch(() => ({}));
+        setOptimisticVotedId(null);
         if (err.requireCaptcha) {
           setCaptchaState({ token: err.captchaToken, question: err.question, optionId });
         } else {
@@ -283,6 +291,7 @@ export function MarketCard({ poll }: MarketCardProps) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        setOptimisticVotedId(null);
         toast({ title: err.error ?? "Vote failed", variant: "destructive" });
         return;
       }
@@ -299,7 +308,9 @@ export function MarketCard({ poll }: MarketCardProps) {
         markVoted(poll.slug, confirmedOptionId);
         setLocalVotedId(confirmedOptionId);
       }
+      setOptimisticVotedId(null);
 
+      // Background sync for accurate counts
       queryClient.invalidateQueries({ queryKey: ["polls"] });
       toast({ title: data.changed ? "Vote changed" : "Vote recorded" });
     } finally {
@@ -393,7 +404,8 @@ export function MarketCard({ poll }: MarketCardProps) {
         <div className="px-4 pb-2 flex-1">
           <div className={`flex flex-col gap-0.5 ${poll.options.length > 4 ? "max-h-[192px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" : ""}`}>
           {poll.options.map((opt, i) => {
-            const pct = totalVotes > 0 ? Math.round((opt.voteCount / totalVotes) * 100) : 0;
+            const optVoteCount = (hasOptimistic && opt.id === optimisticVotedId) ? opt.voteCount + 1 : opt.voteCount;
+            const pct = totalVotes > 0 ? Math.round((optVoteCount / totalVotes) * 100) : 0;
             const isVotedThis = effectiveVotedId === opt.id;
             const hasVotedAnother = effectiveVotedId !== null && !isVotedThis;
             return (

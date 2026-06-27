@@ -60,15 +60,31 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
   const cardRef = useRef<HTMLDivElement>(null);
 
   const hasVoted = myVoteOptionId !== null;
+  // Use lastVotedId as the effective voted option (covers optimistic state before myVote refetches)
+  const effectiveVotedId = lastVotedId ?? myVoteOptionId;
   const totalVotes = poll.totalVotes;
 
   const getPercent = (option: PollOption) => {
-    if (totalVotes === 0) return 0;
-    return Math.round((option.voteCount / totalVotes) * 100);
+    if (totalVotes === 0 && !lastVotedId) return 0;
+    // Optimistic: if we just voted and the refetch hasn't landed yet, show +1 on voted option
+    const optCount = (lastVotedId && myVoteOptionId === null && option.id === lastVotedId)
+      ? option.voteCount + 1
+      : option.voteCount;
+    const total = (lastVotedId && myVoteOptionId === null) ? totalVotes + 1 : totalVotes;
+    if (total === 0) return 0;
+    return Math.round((optCount / total) * 100);
   };
 
   const castVote = async (optionId: number, captchaToken?: string, captchaAnswer?: number) => {
     setVoting(true);
+
+    // Optimistic update — show result immediately before the network round-trip
+    setLastVotedId(optionId);
+    setJustVoted(true);
+    setIsChanging(false);
+    setSelectedId(null);
+    recordStreakVote();
+
     try {
       const anonymousId = getDeviceId();
       const body: Record<string, unknown> = { optionId, anonymousId };
@@ -86,6 +102,9 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
 
       if (res.status === 429) {
         const err = await res.json().catch(() => ({}));
+        // Revert optimistic state
+        setLastVotedId(null);
+        setJustVoted(false);
         if (err.requireCaptcha) {
           setCaptchaState({ token: err.captchaToken, question: err.question });
         } else {
@@ -102,18 +121,17 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        // Revert optimistic state
+        setLastVotedId(null);
+        setJustVoted(false);
         toast({ title: t.couldNotVote, description: err.error ?? "Please try again", variant: "destructive" });
         return;
       }
 
       setCaptchaState(null);
       setCaptchaError("");
-      recordStreakVote();
-      setLastVotedId(optionId);
       toast({ title: t.voteRecorded, description: "Your voice has been counted." });
-      setIsChanging(false);
-      setSelectedId(null);
-      setJustVoted(true);
+      // Background sync — UI is already updated optimistically
       queryClient.invalidateQueries({ queryKey: getGetPollBySlugQueryKey(poll.slug) });
       queryClient.invalidateQueries({ queryKey: getGetMyVoteQueryKey(poll.slug) });
       if (onVoted) onVoted();
@@ -133,7 +151,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
     castVote(selectedId, captchaState.token, answer);
   };
 
-  const showResults = (hasVoted && !isChanging) || poll.status !== "open";
+  const showResults = (hasVoted && !isChanging) || poll.status !== "open" || (justVoted && !isChanging);
   const showVoting = !showResults && poll.status === "open";
 
   // Detect if any option has an image (to use card layout)
@@ -231,7 +249,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
         <div className="flex flex-col gap-2">
           {poll.options.map((option: any) => {
             const pct = getPercent(option);
-            const isMyVote = option.id === myVoteOptionId;
+            const isMyVote = option.id === effectiveVotedId;
             const imgSrc = resolveImageUrl(option.imageUrl);
             return (
               <div
@@ -275,7 +293,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
         <>
           {poll.options.map((option: any) => {
             const pct = getPercent(option);
-            const isMyVote = option.id === myVoteOptionId;
+            const isMyVote = option.id === effectiveVotedId;
             const isSelected = option.id === selectedId;
 
             if (showResults) {
