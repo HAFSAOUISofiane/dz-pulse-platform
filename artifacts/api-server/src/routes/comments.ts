@@ -189,4 +189,35 @@ router.post("/polls/:slug/comments", authMiddleware, async (req, res) => {
   }
 });
 
+// ── Upvote a comment ──────────────────────────────────────────────────────────
+// POST /api/polls/:slug/comments/:commentId/upvote
+// Increments the upvotes counter. Lightweight — no per-user tracking in DB.
+// The client tracks which comments it has upvoted in localStorage.
+router.post("/polls/:slug/comments/:commentId/upvote", async (req, res) => {
+  const commentId = parseInt(req.params.commentId, 10);
+  if (isNaN(commentId) || commentId <= 0) {
+    res.status(400).json({ error: "Invalid comment id" });
+    return;
+  }
+
+  try {
+    const [comment] = await db
+      .update(commentsTable)
+      .set({ upvotes: sql`${commentsTable.upvotes} + 1` })
+      .where(and(eq(commentsTable.id, commentId), eq(commentsTable.status, "visible")))
+      .returning({ id: commentsTable.id, upvotes: commentsTable.upvotes });
+
+    if (!comment) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
+
+    res.json({ id: comment.id, upvotes: comment.upvotes });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to upvote comment" });
+  }
+});
+
 export default router;
+

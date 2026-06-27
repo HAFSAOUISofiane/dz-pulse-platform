@@ -83,7 +83,18 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
     setJustVoted(true);
     setIsChanging(false);
     setSelectedId(null);
-    recordStreakVote();
+    const { streak, newMilestone } = recordStreakVote();
+    if (newMilestone !== null) {
+      const medals: Record<number, string> = { 3: "🔥", 7: "⚡", 30: "🏆" };
+      toast({
+        title: `${medals[newMilestone] ?? "🎉"} ${newMilestone}-day streak!`,
+        description: newMilestone === 30
+          ? "You've voted every day for a month. Legendary civic participation!"
+          : newMilestone === 7
+          ? "A full week of votes. You're a DzPulse regular!"
+          : "Three days in a row. Keep the streak going!",
+      });
+    }
 
     try {
       const anonymousId = getDeviceId();
@@ -258,7 +269,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
                 data-testid={`result-option-${option.id}`}
               >
                 <div
-                  className="absolute inset-0 transition-all duration-700"
+                  className="absolute inset-0 transition-[width] duration-400"
                   style={{
                     width: `${pct}%`,
                     background: isMyVote
@@ -304,7 +315,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
                   data-testid={`result-option-${option.id}`}
                 >
                   <div
-                    className="absolute inset-0 transition-all duration-700"
+                    className="absolute inset-0 transition-[width] duration-400"
                     style={{
                       width: `${pct}%`,
                       background: isMyVote

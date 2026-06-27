@@ -1,0 +1,24 @@
+name: Cron Jobs (auto-close, auto-trend, auto-open)
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # every hour
+  workflow_dispatch:
+
+jobs:
+  run-cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run cron jobs
+        run: |
+          STATUS=$(curl --silent --output /tmp/cron_resp.json --write-out "%{http_code}" \
+            --max-time 60 \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VITE_API_URL }}/api/cron/run")
+          echo "HTTP status: $STATUS"
+          cat /tmp/cron_resp.json
+          if [ "$STATUS" != "200" ]; then
+            echo "Warning: cron endpoint returned $STATUS"
+          fi

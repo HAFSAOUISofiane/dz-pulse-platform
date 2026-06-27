@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { apiFetch } from "@/lib/api-fetch";
 import { usePollLive } from "@/hooks/use-poll-live";
-import { Flag, ChevronLeft, Calendar, MapPin, ExternalLink, Bookmark, TrendingUp, BarChart2, Share2, X, Clock, Copy, Check, QrCode, Image as ImageIcon, Loader2, Link as LinkIcon } from "lucide-react";
+import { Flag, ChevronLeft, Calendar, MapPin, ExternalLink, Bookmark, TrendingUp, BarChart2, Share2, X, Clock, Copy, Check, QrCode, Image as ImageIcon, Loader2, Link as LinkIcon, Hash, Globe } from "lucide-react";
 import { ShareMenu } from "@/components/polls/share-menu";
 import { AppShell } from "@/components/layout/app-shell";
 import { VoteOptions } from "@/components/polls/vote-options";
@@ -15,18 +15,17 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
   useGetPollBySlug,
-  useGetMyVote,
   useGetRelatedPolls,
   useSubmitReport,
   getGetPollBySlugQueryKey,
-  getGetMyVoteQueryKey,
   getGetRelatedPollsQueryKey,
 } from "@workspace/api-client-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useLang } from "@/lib/language-context";
 import { MetaTags } from "@/components/seo/meta-tags";
 
-type DetailTab = "overview" | "discussion" | "methodology";
+type DetailTab = "overview" | "discussion" | "timeline" | "breakdown" | "methodology";
 
 export default function PollDetailPage() {
   const params = useParams<{ slug: string }>();
@@ -35,6 +34,11 @@ export default function PollDetailPage() {
   const { lang, t, isRTL } = useLang();
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
   const [floatShareDismissed, setFloatShareDismissed] = useState(false);
+  const [timelineData, setTimelineData] = useState<any>(null);
+  const [timelineRange, setTimelineRange] = useState("7d");
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [breakdownData, setBreakdownData] = useState<any>(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [copyDone, setCopyDone] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -43,12 +47,41 @@ export default function PollDetailPage() {
 
   usePollLive(slug);
 
+  useEffect(() => {
+    if (activeTab !== "timeline" || !slug) return;
+    setTimelineLoading(true);
+    const token = localStorage.getItem("dzpulse_token") ?? "";
+    apiFetch(`/api/polls/${slug}/timeline?range=${timelineRange}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((d) => setTimelineData(d))
+      .catch(() => {})
+      .finally(() => setTimelineLoading(false));
+  }, [activeTab, slug, timelineRange]);
+
+  useEffect(() => {
+    if (activeTab !== "breakdown" || !slug) return;
+    if (breakdownData) return;
+    setBreakdownLoading(true);
+    const token = localStorage.getItem("dzpulse_token") ?? "";
+    apiFetch(`/api/polls/${slug}/breakdown`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((d) => setBreakdownData(d))
+      .catch(() => {})
+      .finally(() => setBreakdownLoading(false));
+  }, [activeTab, slug]);
+
   const { data: poll, isLoading } = useGetPollBySlug(slug, {
     query: {
       queryKey: [...getGetPollBySlugQueryKey(slug), lang],
       queryFn: async ({ signal }: any) => {
         const token = localStorage.getItem("dzpulse_token") ?? "";
-        const r = await apiFetch(`/api/polls/${slug}?lang=${lang}`, {
+        const anonId = localStorage.getItem("dzpulse_anon_id") ?? "";
+        const anonParam = anonId ? `&anonymousId=${encodeURIComponent(anonId)}` : "";
+        const r = await apiFetch(`/api/polls/${slug}?lang=${lang}${anonParam}`, {
           signal,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -57,24 +90,7 @@ export default function PollDetailPage() {
       },
     }
   });
-
-  const { data: myVote } = useGetMyVote(slug, {
-    query: {
-      queryKey: getGetMyVoteQueryKey(slug),
-      enabled: !!slug,
-      queryFn: async ({ signal }: any) => {
-        const anonId = localStorage.getItem("dzpulse_anon_id") ?? "";
-        const token = localStorage.getItem("dzpulse_token") ?? "";
-        const url = `/api/polls/${slug}/my-vote${anonId ? `?anonymousId=${encodeURIComponent(anonId)}` : ""}`;
-        const r = await apiFetch(url, {
-          signal,
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!r.ok) return { optionId: null };
-        return r.json();
-      },
-    }
-  });
+  // myVoteOptionId is now embedded in the poll response — no separate request needed
 
   const { data: relatedPolls } = useGetRelatedPolls(slug, {
     query: {
@@ -143,6 +159,8 @@ export default function PollDetailPage() {
   const tabs: { id: DetailTab; label: string }[] = [
     { id: "overview", label: t.overview },
     { id: "discussion", label: `${t.discussion}${poll.commentCount ? ` (${poll.commentCount})` : ""}` },
+    { id: "timeline", label: "Timeline" },
+    { id: "breakdown", label: "By Wilaya" },
     { id: "methodology", label: t.methodology },
   ];
 
@@ -313,9 +331,12 @@ export default function PollDetailPage() {
               {poll.tags && poll.tags.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap mt-3">
                   {poll.tags.map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded-md">
-                      {tag}
-                    </span>
+                    <Link key={tag} href={`/polls?tag=${encodeURIComponent(tag)}`}>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground text-xs rounded-md cursor-pointer transition-colors">
+                        <Hash size={9} />
+                        {tag}
+                      </span>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -354,7 +375,7 @@ export default function PollDetailPage() {
                   </div>
                   <VoteOptions
                     poll={poll}
-                    myVoteOptionId={myVote?.optionId ?? null}
+                    myVoteOptionId={(poll as any).myVoteOptionId ?? null}
                   />
                 </div>
 
@@ -388,7 +409,7 @@ export default function PollDetailPage() {
                               </div>
                               <div className="h-2 bg-muted rounded-full overflow-hidden">
                                 <div
-                                  className="h-full rounded-full transition-all duration-700"
+                                  className="h-full rounded-full transition-[width] duration-400"
                                   style={{
                                     width: `${pct}%`,
                                     backgroundColor: isLeading ? poll.category.color || "hsl(153 60% 25%)" : undefined,
@@ -411,6 +432,131 @@ export default function PollDetailPage() {
             {activeTab === "discussion" && (
               <div data-testid="section-discussion">
                 <CommentSection pollSlug={slug} />
+              </div>
+            )}
+
+            {/* Tab: Timeline */}
+            {activeTab === "timeline" && (
+              <div className="flex flex-col gap-5" data-testid="section-timeline">
+                <div className="border border-border rounded-lg p-5 bg-card">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <BarChart2 size={14} className="text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-foreground">Opinion shift over time</h3>
+                    </div>
+                    <div className="flex gap-1">
+                      {(["1h","24h","7d","30d","90d"] as const).map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => setTimelineRange(r)}
+                          className={`px-2 py-0.5 text-xs rounded transition-colors ${timelineRange === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {timelineLoading ? (
+                    <div className="h-48 flex items-center justify-center text-xs text-muted-foreground">
+                      <Loader2 size={16} className="animate-spin mr-2" /> Loading timeline…
+                    </div>
+                  ) : timelineData && timelineData.buckets && timelineData.buckets.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <AreaChart data={timelineData.buckets} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                        <Tooltip formatter={(value: any) => [`${value}%`]} contentStyle={{ fontSize: 11 }} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        {(timelineData.options ?? []).map((opt: any, i: number) => {
+                          const COLORS = ["#1d4ed8","#dc2626","#16a34a","#d97706","#7c3aed","#0284c7"];
+                          return (
+                            <Area
+                              key={opt.id}
+                              type="monotone"
+                              dataKey={String(opt.id)}
+                              name={opt.label}
+                              stroke={COLORS[i % COLORS.length]}
+                              fill={COLORS[i % COLORS.length]}
+                              fillOpacity={0.08}
+                              strokeWidth={2}
+                              dot={false}
+                            />
+                          );
+                        })}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-48 flex items-center justify-center text-xs text-muted-foreground">
+                      {timelineData?.hasRealData === false
+                        ? "No votes recorded yet — chart will appear once voting begins."
+                        : "No timeline data available for this range."}
+                    </div>
+                  )}
+                  {!timelineLoading && timelineData && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Shows cumulative vote-share percentage at each time point. Lines starting at 50/50 indicate the chart precedes actual votes.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tab: By Wilaya */}
+            {activeTab === "breakdown" && (
+              <div className="flex flex-col gap-5" data-testid="section-breakdown">
+                <div className="border border-border rounded-lg p-5 bg-card">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Globe size={14} className="text-muted-foreground" />
+                    <h3 className="text-sm font-semibold text-foreground">Results by Wilaya</h3>
+                  </div>
+                  {breakdownLoading ? (
+                    <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">
+                      <Loader2 size={16} className="animate-spin mr-2" /> Loading breakdown…
+                    </div>
+                  ) : breakdownData && breakdownData.breakdown && breakdownData.breakdown.length > 0 ? (
+                    <div className="flex flex-col gap-4">
+                      {breakdownData.breakdown.map((row: any) => {
+                        const leading = [...row.options].sort((a: any, b: any) => b.count - a.count)[0];
+                        return (
+                          <div key={row.wilaya} className="border border-border rounded-md p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold text-foreground flex items-center gap-1">
+                                <MapPin size={10} className="text-muted-foreground" />
+                                Wilaya {row.wilaya}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{row.total} vote{row.total !== 1 ? "s" : ""}</span>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              {row.options.map((opt: any) => (
+                                <div key={opt.optionId}>
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <span className={`text-xs ${opt.optionId === leading?.optionId ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{opt.label}</span>
+                                    <span className="text-xs font-medium">{opt.pct}%</span>
+                                  </div>
+                                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-[width] duration-400"
+                                      style={{
+                                        width: `${opt.pct}%`,
+                                        backgroundColor: opt.optionId === leading?.optionId ? (poll.category.color || "hsl(153 60% 25%)") : "hsl(var(--muted-foreground) / 0.3)",
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="py-12 flex flex-col items-center gap-2 text-xs text-muted-foreground">
+                      <Globe size={24} className="opacity-30" />
+                      <p>No wilaya-level data yet.</p>
+                      <p className="text-center max-w-xs">Breakdown appears once registered users with a wilaya set in their profile vote on this poll.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

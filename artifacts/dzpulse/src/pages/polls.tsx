@@ -41,19 +41,21 @@ export default function PollsPage() {
   const urlParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const initialCategory = urlParams.get("category") ?? "all";
   const initialSearch = urlParams.get("search") ?? "";
+  const initialTag = urlParams.get("tag") ?? "";
 
   const [search, setSearch] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedStatus, setSelectedStatus] = useState<PollStatus>("open");
   const [selectedSort, setSelectedSort] = useState<PollSort>("trending");
   const [region, setRegion] = useState<string>("all");
+  const [activeTag, setActiveTag] = useState<string>(initialTag);
   const [page, setPage] = useState(1);
 
   const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
     setPage(1);
-  }, [deferredSearch, selectedCategory, selectedStatus, selectedSort, region, mode]);
+  }, [deferredSearch, selectedCategory, selectedStatus, selectedSort, region, mode, activeTag]);
 
   const pollParams = {
     ...(deferredSearch ? { search: deferredSearch } : {}),
@@ -61,6 +63,7 @@ export default function PollsPage() {
     ...(selectedStatus !== "all" ? { status: selectedStatus } : {}),
     ...(region !== "all" ? { wilaya: region } : {}),
     ...(mode !== "all" ? { pollMode: mode } : {}),
+    ...(activeTag ? { tag: activeTag } : {}),
     sort: selectedSort,
     page,
     limit: PAGE_SIZE,
@@ -68,7 +71,7 @@ export default function PollsPage() {
   } as any;
 
   const { data, isLoading } = useListPolls(pollParams, {
-    query: { queryKey: getListPollsQueryKey(pollParams), refetchInterval: 10_000 },
+    query: { queryKey: getListPollsQueryKey(pollParams), refetchInterval: 60_000 },
   });
 
   const { data: categories } = useListCategories({
@@ -100,6 +103,17 @@ export default function PollsPage() {
           <h1 className="text-xl font-bold text-foreground" data-testid="heading-polls">{t.explorePolls}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t.platformDesc}</p>
         </div>
+
+        {/* Tag filter banner */}
+        {activeTag && (
+          <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+            <span className="text-muted-foreground">Filtering by tag:</span>
+            <span className="font-semibold text-primary">#{activeTag}</span>
+            <button onClick={() => setActiveTag("")} className="ml-auto text-muted-foreground hover:text-foreground transition-colors">
+              <X size={12} />
+            </button>
+          </div>
+        )}
 
         {/* Search bar */}
         <div className="relative mb-4">

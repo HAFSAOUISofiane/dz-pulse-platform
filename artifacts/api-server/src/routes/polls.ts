@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, asc, ilike, and, or, inArray, ne } from "drizzle-orm";
+import { eq, sql, desc, asc, ilike, and, or, inArray, ne, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   pollsTable, pollOptionsTable, categoriesTable, usersTable, votesTable, commentsTable
@@ -59,6 +59,7 @@ router.get("/polls", optionalAuthMiddleware, async (req, res) => {
   const {
     page = 1, limit = 20, search, category, status, sort = "trending", featured, wilaya
   } = query.data;
+  const tag = typeof req.query.tag === "string" ? req.query.tag : undefined;
 
   try {
     const conditions: any[] = [eq(pollsTable.isPrivate, false)];
@@ -68,6 +69,7 @@ router.get("/polls", optionalAuthMiddleware, async (req, res) => {
     if (featured) conditions.push(eq(pollsTable.isFeatured, true));
     if (wilaya === "national") conditions.push(eq(pollsTable.regionScope, "national"));
     else if (wilaya) conditions.push(eq(pollsTable.wilayaCode, wilaya));
+    if (tag) conditions.push(sql`${pollsTable.tags}::jsonb @> ${JSON.stringify([tag])}::jsonb`);
 
     let orderBy: any;
     if (sort === "latest") {
@@ -184,6 +186,7 @@ router.get("/polls/:slug", optionalAuthMiddleware, async (req, res) => {
   }
 
   const lang: LangCode = (["ar", "fr", "en"].includes(req.query.lang as string) ? req.query.lang : "en") as LangCode;
+  const anonymousId = typeof req.query.anonymousId === "string" ? req.query.anonymousId.slice(0, 64) : null;
 
   try {
     const [poll] = await db
@@ -197,26 +200,31 @@ router.get("/polls/:slug", optionalAuthMiddleware, async (req, res) => {
       return;
     }
 
-    const [category] = await db
-      .select()
-      .from(categoriesTable)
-      .where(eq(categoriesTable.id, poll.categoryId))
-      .limit(1);
-
-    const options = await db
-      .select()
-      .from(pollOptionsTable)
-      .where(eq(pollOptionsTable.pollId, poll.id))
-      .orderBy(asc(pollOptionsTable.displayOrder));
-
-    const [{ commentCount }] = await db
-      .select({ commentCount: sql<number>`count(*)::int` })
-      .from(commentsTable)
-      .where(and(eq(commentsTable.pollId, poll.id), eq(commentsTable.status, "visible")));
+    // Run all dependent queries in parallel instead of sequentially
+    const [category, options, [{ commentCount }], myVoteRow] = await Promise.all([
+      db.select().from(categoriesTable).where(eq(categoriesTable.id, poll.categoryId)).limit(1).then(r => r[0]),
+      db.select().from(pollOptionsTable).where(eq(pollOptionsTable.pollId, poll.id)).orderBy(asc(pollOptionsTable.displayOrder)),
+      db.select({ commentCount: sql<number>`count(*)::int` }).from(commentsTable).where(and(eq(commentsTable.pollId, poll.id), eq(commentsTable.status, "visible"))),
+      // Embed myVoteOptionId to save a client round-trip
+      (async () => {
+        if (req.user) {
+          return db.select({ optionId: votesTable.optionId }).from(votesTable)
+            .where(and(eq(votesTable.userId, req.user.userId), eq(votesTable.pollId, poll.id)))
+            .limit(1).then(r => r[0] ?? null);
+        }
+        if (anonymousId) {
+          return db.select({ optionId: votesTable.optionId }).from(votesTable)
+            .where(and(eq(votesTable.anonymousId, anonymousId), eq(votesTable.pollId, poll.id), isNull(votesTable.userId)))
+            .limit(1).then(r => r[0] ?? null);
+        }
+        return null;
+      })(),
+    ]);
 
     res.json({
       ...buildPollShape(poll, category, options, lang),
       commentCount,
+      myVoteOptionId: myVoteRow?.optionId ?? null,
     });
   } catch (err) {
     req.log.error(err);
@@ -305,6 +313,68 @@ router.get("/polls/:slug/related", async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to fetch related polls" });
+  }
+});
+
+// ── Wilaya breakdown ─────────────────────────────────────────────────────────
+// GET /api/polls/:slug/breakdown
+// Returns vote counts per option grouped by wilaya code.
+router.get("/polls/:slug/breakdown", async (req, res) => {
+  const slug = String(req.params.slug ?? "");
+  if (!slug) { res.status(400).json({ error: "Missing slug" }); return; }
+
+  try {
+    const [poll] = await db
+      .select({ id: pollsTable.id })
+      .from(pollsTable)
+      .where(eq(pollsTable.slug, slug))
+      .limit(1);
+
+    if (!poll) { res.status(404).json({ error: "Poll not found" }); return; }
+
+    const options = await db
+      .select({ id: pollOptionsTable.id, label: pollOptionsTable.label })
+      .from(pollOptionsTable)
+      .where(eq(pollOptionsTable.pollId, poll.id))
+      .orderBy(asc(pollOptionsTable.displayOrder));
+
+    // Aggregate votes by wilaya and option
+    const rows = await db.execute(sql.raw(`
+      SELECT wilaya, option_id, COUNT(*) as vote_count
+      FROM votes
+      WHERE poll_id = ${poll.id} AND wilaya IS NOT NULL AND wilaya != ''
+      GROUP BY wilaya, option_id
+      ORDER BY wilaya, option_id
+    `));
+
+    // Build a map: wilaya → { optionId: count }
+    const byWilaya: Record<string, Record<number, number>> = {};
+    for (const row of (rows as any).rows ?? rows) {
+      const w = String(row.wilaya);
+      const oId = Number(row.option_id);
+      const cnt = Number(row.vote_count);
+      if (!byWilaya[w]) byWilaya[w] = {};
+      byWilaya[w][oId] = cnt;
+    }
+
+    // Convert to array form with percentages
+    const breakdown = Object.entries(byWilaya).map(([wilaya, optionCounts]) => {
+      const total = Object.values(optionCounts).reduce((s, n) => s + n, 0);
+      const opts = options.map((o) => ({
+        optionId: o.id,
+        label: o.label,
+        count: optionCounts[o.id] ?? 0,
+        pct: total > 0 ? +((( optionCounts[o.id] ?? 0) / total) * 100).toFixed(1) : 0,
+      }));
+      return { wilaya, total, options: opts };
+    });
+
+    breakdown.sort((a, b) => b.total - a.total);
+
+    res.json({ breakdown, options: options.map(o => ({ id: o.id, label: o.label })) });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to fetch breakdown" });
   }
 });
 

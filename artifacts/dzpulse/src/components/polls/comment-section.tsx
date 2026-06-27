@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { MessageSquare, ChevronDown } from "lucide-react";
+import { MessageSquare, ChevronDown, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
+import { apiFetch } from "@/lib/api-fetch";
 import {
   useListComments,
   useCreateComment,
@@ -17,13 +18,39 @@ import { Link } from "wouter";
 import type { Comment } from "@workspace/api-client-react";
 import { formatDistanceToNow } from "date-fns";
 
+const UPVOTED_KEY = "dzpulse_upvoted_comments";
+function getUpvoted(): Set<number> {
+  try { return new Set(JSON.parse(localStorage.getItem(UPVOTED_KEY) ?? "[]")); } catch { return new Set(); }
+}
+function saveUpvoted(s: Set<number>) {
+  try { localStorage.setItem(UPVOTED_KEY, JSON.stringify([...s])); } catch { /* */ }
+}
+
 function CommentItem({ comment, pollSlug }: { comment: Comment; pollSlug: string }) {
   const { isAuthenticated } = useAuth();
   const [showReply, setShowReply] = useState(false);
   const [replyBody, setReplyBody] = useState("");
+  const [upvotes, setUpvotes] = useState<number>(comment.upvotes ?? 0);
+  const [hasUpvoted, setHasUpvoted] = useState(() => getUpvoted().has(comment.id));
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createCommentMutation = useCreateComment();
+
+  const handleUpvote = async () => {
+    if (hasUpvoted) return;
+    setUpvotes((n) => n + 1);
+    setHasUpvoted(true);
+    const s = getUpvoted();
+    s.add(comment.id);
+    saveUpvoted(s);
+    try {
+      const token = localStorage.getItem("dzpulse_token") ?? "";
+      await apiFetch(`/api/polls/${pollSlug}/comments/${comment.id}/upvote`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch { /* optimistic — don't roll back */ }
+  };
 
   const handleReply = () => {
     if (!replyBody.trim()) return;
@@ -56,14 +83,28 @@ function CommentItem({ comment, pollSlug }: { comment: Comment; pollSlug: string
           </span>
         </div>
         <p className="text-sm text-foreground mt-1 leading-relaxed">{comment.body}</p>
-        {isAuthenticated && (
+        <div className="flex items-center gap-3 mt-1">
           <button
-            onClick={() => setShowReply(!showReply)}
-            className="text-xs text-muted-foreground hover:text-foreground mt-1 transition-colors"
+            onClick={handleUpvote}
+            disabled={hasUpvoted}
+            className={`inline-flex items-center gap-1 text-xs transition-colors ${
+              hasUpvoted
+                ? "text-primary font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
-            Reply
+            <ThumbsUp size={11} className={hasUpvoted ? "fill-primary" : ""} />
+            {upvotes > 0 && <span>{upvotes}</span>}
           </button>
-        )}
+          {isAuthenticated && (
+            <button
+              onClick={() => setShowReply(!showReply)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Reply
+            </button>
+          )}
+        </div>
         {showReply && (
           <div className="mt-2 flex gap-2">
             <Textarea

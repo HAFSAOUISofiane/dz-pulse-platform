@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Shield, CheckCircle, Globe, BarChart2, Zap, Users, Flame } from "lucide-react";
+import { ArrowRight, Shield, CheckCircle, Globe, BarChart2, Zap, Users, Flame, Clock } from "lucide-react";
 import { PollOfTheDay } from "@/components/home/poll-of-the-day";
 import { getStreak } from "@/hooks/use-streak";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ export default function HomePage() {
 
   const { data: trendingPolls, isLoading: loadingTrending } = useGetTrendingPolls(
     { limit: 5 },
-    { query: { queryKey: getGetTrendingPollsQueryKey({ limit: 5 }), refetchInterval: 10_000 } }
+    { query: { queryKey: getGetTrendingPollsQueryKey({ limit: 5 }), refetchInterval: 60_000 } }
   );
 
   const latestParams = {
@@ -50,7 +50,7 @@ export default function HomePage() {
   };
   const { data: latestPolls, isLoading: loadingLatest } = useListPolls(
     latestParams as any,
-    { query: { queryKey: getListPollsQueryKey(latestParams as any), refetchInterval: 10_000 } }
+    { query: { queryKey: getListPollsQueryKey(latestParams as any), refetchInterval: 60_000 } }
   );
 
   const trendingParams = {
@@ -59,7 +59,13 @@ export default function HomePage() {
   };
   const { data: allPolls, isLoading: loadingAll } = useListPolls(
     trendingParams as any,
-    { query: { queryKey: getListPollsQueryKey(trendingParams as any), refetchInterval: 10_000 } }
+    { query: { queryKey: getListPollsQueryKey(trendingParams as any), refetchInterval: 60_000 } }
+  );
+
+  const upcomingParams = { sort: "latest" as const, status: "upcoming" as const, limit: 4 };
+  const { data: upcomingPolls } = useListPolls(
+    upcomingParams as any,
+    { query: { queryKey: getListPollsQueryKey(upcomingParams as any) } }
   );
 
   const { data: categories, isLoading: loadingCategories } = useListCategories({
@@ -272,6 +278,42 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* ── Upcoming polls ── */}
+      {upcomingPolls && upcomingPolls.polls && upcomingPolls.polls.length > 0 && (
+        <div className="border-t border-border">
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Clock size={14} className="text-primary" />
+                <h2 className="text-base font-semibold text-foreground">Coming Soon</h2>
+                <span className="text-xs text-muted-foreground">— polls opening soon</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              {upcomingPolls.polls.map((poll) => (
+                <div key={poll.id} className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-dashed border-border bg-muted/20">
+                  <Clock size={13} className="text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{poll.title}</p>
+                    {(poll as any).opensAt && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Opens {new Date((poll as any).opensAt).toLocaleDateString("en-DZ", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full shrink-0"
+                    style={{ color: poll.category.color, backgroundColor: poll.category.color + "15" }}
+                  >
+                    {poll.category.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── CTA Banner ── */}
       <div className="border-t border-border bg-muted/20">

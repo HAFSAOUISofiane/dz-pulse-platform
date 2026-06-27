@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, isNull, asc, or, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { pollsTable, pollOptionsTable, votesTable } from "@workspace/db";
+import { pollsTable, pollOptionsTable, votesTable, usersTable } from "@workspace/db";
 import { CastVoteParams, GetMyVoteParams } from "@workspace/api-zod";
 import { optionalAuthMiddleware } from "../lib/auth.js";
 import { broadcastPollUpdate } from "../lib/sse-manager.js";
@@ -185,13 +185,19 @@ router.post("/polls/:slug/vote", optionalAuthMiddleware, async (req, res) => {
     }
 
     // ── New vote ──────────────────────────────────────────────────────────────
+    let voterWilaya: string | null = null;
+    if (userId !== null) {
+      const [userRow] = await db.select({ wilaya: usersTable.wilaya }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      voterWilaya = userRow?.wilaya ?? null;
+    }
+
     await db.insert(votesTable).values({
       pollId: poll.id,
       optionId,
       userId,
       anonymousId: userId ? null : (anonymousId ?? null),
       ipHash,
-      wilaya: null,
+      wilaya: voterWilaya,
     });
 
     await db.update(pollOptionsTable)
@@ -205,13 +211,15 @@ router.post("/polls/:slug/vote", optionalAuthMiddleware, async (req, res) => {
       })
       .where(eq(pollsTable.id, poll.id));
 
-    // Update percentage cache
+    // Update percentage cache — single batched CASE WHEN instead of N sequential UPDATEs
     const [updatedPoll] = await db.select().from(pollsTable).where(eq(pollsTable.id, poll.id)).limit(1);
     const options = await db.select().from(pollOptionsTable).where(eq(pollOptionsTable.pollId, poll.id)).orderBy(asc(pollOptionsTable.displayOrder));
 
-    for (const opt of options) {
-      const pct = updatedPoll.totalVotes > 0 ? ((opt.voteCount / updatedPoll.totalVotes) * 100).toFixed(1) : "0";
-      await db.update(pollOptionsTable).set({ percentageCache: pct }).where(eq(pollOptionsTable.id, opt.id));
+    if (options.length > 0) {
+      const caseWhen = options
+        .map((opt) => `WHEN ${opt.id} THEN '${updatedPoll.totalVotes > 0 ? ((opt.voteCount / updatedPoll.totalVotes) * 100).toFixed(1) : "0"}'`)
+        .join(" ");
+      await db.execute(sql.raw(`UPDATE poll_options SET percentage_cache = CASE id ${caseWhen} ELSE '0' END WHERE poll_id = ${poll.id}`));
     }
 
     res.status(201).json({ success: true, changed: false, optionId, totalVotes: updatedPoll.totalVotes, options });

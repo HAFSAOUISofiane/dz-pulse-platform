@@ -13,6 +13,8 @@ import usersRouter from "./users.js";
 import shareRouter from "./share.js";
 import feedbackRouter from "./feedback.js";
 import storageRouter from "./storage.js";
+import cronRouter from "./cron.js";
+import sitemapRouter from "./sitemap.js";
 
 const router: IRouter = Router();
 
@@ -30,5 +32,7 @@ router.use(feedbackRouter);
 router.use(adminRouter);
 router.use(usersRouter);
 router.use(storageRouter);
+router.use(cronRouter);
+router.use(sitemapRouter);
 
 export default router;

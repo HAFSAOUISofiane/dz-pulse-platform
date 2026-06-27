@@ -16,6 +16,36 @@ function getGoogleClient() {
   return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
 }
 
+// ── Login brute-force protection ───────────────────────────────────────────────
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function getClientIp(req: any): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  const raw = (typeof forwarded === "string" ? forwarded.split(",")[0] : null)
+    ?? req.ip ?? req.socket?.remoteAddress ?? "unknown";
+  return raw.trim();
+}
+
+function checkLoginRateLimit(ip: string): { allowed: boolean; remainingMs?: number } {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || entry.resetAt < now) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return { allowed: true };
+  }
+  if (entry.count >= MAX_LOGIN_ATTEMPTS) {
+    return { allowed: false, remainingMs: entry.resetAt - now };
+  }
+  entry.count++;
+  return { allowed: true };
+}
+
+function clearLoginRateLimit(ip: string) {
+  loginAttempts.delete(ip);
+}
+
 const router: IRouter = Router();
 
 router.post("/auth/register", async (req, res) => {
@@ -77,6 +107,14 @@ router.post("/auth/register", async (req, res) => {
 });
 
 router.post("/auth/login", async (req, res) => {
+  const ip = getClientIp(req);
+  const rateCheck = checkLoginRateLimit(ip);
+  if (!rateCheck.allowed) {
+    const waitMin = Math.ceil((rateCheck.remainingMs ?? LOGIN_WINDOW_MS) / 60000);
+    res.status(429).json({ error: `Too many login attempts. Try again in ${waitMin} minute${waitMin > 1 ? "s" : ""}.` });
+    return;
+  }
+
   const body = LoginUserBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "Invalid request body" });
@@ -101,6 +139,9 @@ router.post("/auth/login", async (req, res) => {
       res.status(403).json({ error: "Account suspended" });
       return;
     }
+
+    // Successful login — clear the rate limit counter for this IP
+    clearLoginRateLimit(ip);
 
     const token = signToken({ userId: user.id, role: user.role });
 
@@ -147,6 +188,97 @@ router.get("/auth/me", authMiddleware, async (req, res) => {
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+router.patch("/auth/me", authMiddleware, async (req, res) => {
+  const userId = req.user!.userId;
+  const { name, bio, wilaya, ageRange, avatarUrl } = req.body as {
+    name?: string;
+    bio?: string;
+    wilaya?: string;
+    ageRange?: string;
+    avatarUrl?: string;
+  };
+
+  const updates: Record<string, any> = {};
+  if (name !== undefined) {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed.length > 100) {
+      res.status(400).json({ error: "Name must be 1–100 characters" });
+      return;
+    }
+    updates.name = trimmed;
+  }
+  if (bio !== undefined) updates.bio = bio.trim().slice(0, 500) || null;
+  if (wilaya !== undefined) updates.wilaya = wilaya.trim() || null;
+  if (ageRange !== undefined) updates.ageRange = ageRange.trim() || null;
+  if (avatarUrl !== undefined) {
+    const url = avatarUrl.trim();
+    if (url && !url.startsWith("https://")) {
+      res.status(400).json({ error: "Avatar URL must start with https://" });
+      return;
+    }
+    updates.avatarUrl = url || null;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+
+  try {
+    const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, userId)).returning();
+    res.json({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      avatarUrl: user.avatarUrl ?? null,
+      bio: user.bio ?? null,
+      wilaya: user.wilaya ?? null,
+      ageRange: user.ageRange ?? null,
+      createdAt: user.createdAt,
+    });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+router.post("/auth/change-password", authMiddleware, async (req, res) => {
+  const userId = req.user!.userId;
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "currentPassword and newPassword are required" });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "New password must be at least 8 characters" });
+    return;
+  }
+
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user || !user.passwordHash) {
+      res.status(400).json({ error: "Cannot change password for this account type" });
+      return;
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, userId));
+    res.json({ message: "Password changed successfully" });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "Failed to change password" });
   }
 });
 

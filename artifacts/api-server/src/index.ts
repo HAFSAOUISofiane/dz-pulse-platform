@@ -10,6 +10,13 @@ if (!rawPort) {
   );
 }
 
+if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+  throw new Error(
+    "SESSION_SECRET is not set. JWT tokens would use an insecure default. " +
+    "Set SESSION_SECRET in your Render environment variables and redeploy."
+  );
+}
+
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {

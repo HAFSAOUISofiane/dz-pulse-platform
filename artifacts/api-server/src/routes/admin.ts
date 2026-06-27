@@ -372,6 +372,18 @@ router.patch("/admin/users/:id", async (req, res) => {
 
   const { role, status } = req.body as { role?: string; status?: string };
 
+  const VALID_ROLES = new Set(["user", "moderator", "admin"]);
+  const VALID_STATUSES = new Set(["active", "suspended"]);
+
+  if (role !== undefined && !VALID_ROLES.has(role)) {
+    res.status(400).json({ error: "Invalid role. Must be one of: user, moderator, admin" });
+    return;
+  }
+  if (status !== undefined && !VALID_STATUSES.has(status)) {
+    res.status(400).json({ error: "Invalid status. Must be one of: active, suspended" });
+    return;
+  }
+
   try {
     const updates: Record<string, any> = {};
     if (role) updates.role = role;

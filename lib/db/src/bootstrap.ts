@@ -20,6 +20,20 @@ export async function bootstrapIfEmpty(): Promise<void> {
   const db = drizzle(pool, { schema });
 
   try {
+    // Always ensure performance indexes exist (idempotent)
+    for (const stmt of [
+      `CREATE INDEX IF NOT EXISTS idx_votes_user_poll ON votes (user_id, poll_id) WHERE user_id IS NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_votes_anon_poll ON votes (anonymous_id, poll_id) WHERE anonymous_id IS NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_votes_ip_poll ON votes (ip_hash, poll_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_votes_poll_wilaya ON votes (poll_id, wilaya) WHERE wilaya IS NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_polls_status ON polls (status)`,
+      `CREATE INDEX IF NOT EXISTS idx_polls_category_status ON polls (category_id, status)`,
+      `CREATE INDEX IF NOT EXISTS idx_comments_poll_status ON comments (poll_id, status)`,
+    ]) {
+      await db.execute(sql.raw(stmt));
+    }
+    console.log("[bootstrap] Database indexes ensured.");
+
     const [{ value: catCount }] = await db.select({ value: count() }).from(categoriesTable);
 
     if (Number(catCount) > 0) {
@@ -46,7 +60,11 @@ export async function bootstrapIfEmpty(): Promise<void> {
     const catMap = Object.fromEntries(categories.map((c) => [c.slug, c]));
     console.log(`[bootstrap] Inserted ${categories.length} categories`);
 
-    const passwordHash = await bcrypt.hash("dzpulse20262027", 12);
+    const adminPassword = process.env.ADMIN_SEED_PASSWORD ?? "dzpulse20262027";
+    if (!process.env.ADMIN_SEED_PASSWORD) {
+      console.warn("[bootstrap] WARNING: ADMIN_SEED_PASSWORD is not set. Using default password. Change it immediately after first login!");
+    }
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
     const [adminUser] = await db
       .insert(usersTable)
       .values({
