@@ -52,6 +52,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
   const [voting, setVoting] = useState(false);
   const [justVoted, setJustVoted] = useState(false);
   const [lastVotedId, setLastVotedId] = useState<number | null>(null);
+  const prevTotalRef = useRef<number | null>(null);
   const [sharingImage, setSharingImage] = useState(false);
   const [captchaState, setCaptchaState] = useState<{ token: string; question: string } | null>(null);
   const [captchaError, setCaptchaError] = useState("");
@@ -66,11 +67,11 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
 
   const getPercent = (option: PollOption) => {
     if (totalVotes === 0 && !lastVotedId) return 0;
-    // Optimistic: if we just voted and the refetch hasn't landed yet, show +1 on voted option
-    const optCount = (lastVotedId && myVoteOptionId === null && option.id === lastVotedId)
-      ? option.voteCount + 1
-      : option.voteCount;
-    const total = (lastVotedId && myVoteOptionId === null) ? totalVotes + 1 : totalVotes;
+    // Keep optimistic +1 until the server total has actually increased (both queries settled)
+    const serverCaughtUp = lastVotedId !== null && prevTotalRef.current !== null && totalVotes > prevTotalRef.current;
+    const needsOptimistic = lastVotedId !== null && !serverCaughtUp;
+    const optCount = (needsOptimistic && option.id === lastVotedId) ? option.voteCount + 1 : option.voteCount;
+    const total = needsOptimistic ? totalVotes + 1 : totalVotes;
     if (total === 0) return 0;
     return Math.round((optCount / total) * 100);
   };
@@ -79,6 +80,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
     setVoting(true);
 
     // Optimistic update — show result immediately before the network round-trip
+    prevTotalRef.current = poll.totalVotes;
     setLastVotedId(optionId);
     setJustVoted(true);
     setIsChanging(false);
@@ -116,6 +118,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
         // Revert optimistic state
         setLastVotedId(null);
         setJustVoted(false);
+        prevTotalRef.current = null;
         if (err.requireCaptcha) {
           setCaptchaState({ token: err.captchaToken, question: err.question });
         } else {
@@ -135,6 +138,7 @@ export function VoteOptions({ poll, myVoteOptionId, onVoted }: VoteOptionsProps)
         // Revert optimistic state
         setLastVotedId(null);
         setJustVoted(false);
+        prevTotalRef.current = null;
         toast({ title: t.couldNotVote, description: err.error ?? "Please try again", variant: "destructive" });
         return;
       }
